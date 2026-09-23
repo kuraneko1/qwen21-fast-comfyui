@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Qwen-Image-2.1 pipeline (EN)</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  #stage {
+    position: relative;
+    width: 1200px;
+    height: 620px;
+    background: #ffffff;
+    font-family: 'Noto Sans CJK JP', 'Noto Sans', sans-serif;
+    color: #1f2430;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- boxes: fixed size, content centred, wrapped, never more than 3 lines ---- */
+  .box {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6px 11px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1.5px solid #b9c2cf;
+  }
+  .box .t { font-size: 19px; font-weight: 700; line-height: 1.25; }
+  .box .s { font-size: 12.5px; line-height: 1.5; color: #4a5262; }
+
+  .input   { background: #f4f8fd; border-color: #9fb4cf; }
+  .input .t { font-size: 20px; }
+  .input.ref .t { font-size: 17px; }
+  .stage   { border-width: 2px; border-color: #98a6b8; }
+  .output  { background: #f2faf3; border-color: #a8c9ad; }
+  .weight  { background: #fdf8ee; border-color: #ddc9a0;
+             padding: 8px 11px; justify-content: center; }
+  .weight .n { font-size: 12.5px; line-height: 1.4; color: #23303f; }
+  .weight .g { font-size: 14px; font-weight: 700; line-height: 1.4; margin-top: 0; }
+  .weight .p { font-size: 11.5px; line-height: 1.4; color: #6b7280; }
+  .note    { background: #f6f7f9; border-color: #c9d0da; }
+  .note .s { font-size: 13.5px; color: #303948; }
+
+  /* ---- free text placed directly on the canvas ---- */
+  .captionline { position: absolute; transform: translateX(-50%);
+                 font-size: 12px; line-height: 1.3; color: #3d4657; text-align: center; }
+  .section  { position: absolute; left: 30px; top: 298px; width: 1139px;
+               text-align: center;
+              font-size: 13px; line-height: 1.4; color: #6b7280; }
+
+  /* ---- arrows ---- */
+  .arrows { position: absolute; left: 0; top: 0; }
+  .a-flow { stroke: #3b4658; stroke-width: 2.2; }
+  .a-file { stroke: #3b4658; stroke-width: 2.2; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <svg class="arrows" width="1200" height="620" viewBox="0 0 1200 620" aria-hidden="true">
+    <defs>
+      <marker id="head" viewBox="0 0 10 10" refX="9.4" refY="5"
+              markerWidth="5.6" markerHeight="5.6" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b4658"></path>
+      </marker>
+    </defs>
+    <!-- prompt -> text encoder -->
+    <line class="a-flow" x1="246" y1="123" x2="274" y2="123" marker-end="url(#head)"></line>
+    <!-- reference images -> text encoder -->
+    <line class="a-flow" x1="246" y1="228" x2="274" y2="186" marker-end="url(#head)"></line>
+    <!-- text encoder -> image generator (conditioning) -->
+    <line class="a-flow" x1="479" y1="150" x2="507" y2="150" marker-end="url(#head)"></line>
+    <!-- image generator -> VAE decoder (latent) -->
+    <line class="a-flow" x1="812" y1="150" x2="840" y2="150" marker-end="url(#head)"></line>
+    <!-- VAE decoder -> PNG -->
+    <line class="a-flow" x1="1021" y1="150" x2="1047" y2="150" marker-end="url(#head)"></line>
+    <!-- weight file -> the stage that loads it -->
+    <line class="a-file" x1="172" y1="347" x2="374" y2="232" marker-end="url(#head)"></line>
+    <line class="a-file" x1="599" y1="347" x2="657" y2="232" marker-end="url(#head)"></line>
+    <line class="a-file" x1="1026" y1="347" x2="934" y2="232" marker-end="url(#head)"></line>
+  </svg>
+
+  <!-- inputs -->
+  <div class="box input" style="left:30px; top:90px; width:214px; height:66px;">
+    <div class="t">your prompt</div>
+  </div>
+  <div class="box input ref" style="left:30px; top:176px; width:214px; height:104px;">
+    <div class="t">reference images</div>
+    <div class="s">(editing only)</div>
+  </div>
+
+  <!-- stages -->
+  <div class="box stage" style="left:277px; top:70px; width:200px; height:160px;">
+    <div class="t">TEXT ENCODER</div>
+    <div class="s">Qwen3-VL-8B / int8</div>
+    <div class="s">role: reads the prompt</div>
+  </div>
+  <div class="box stage" style="left:510px; top:70px; width:300px; height:160px;">
+    <div class="t">IMAGE GENERATOR</div>
+    <div class="s">DiT 7.1B / int8</div>
+    <div class="s">role: 12-20 step loop (the heaviest part)</div>
+  </div>
+  <div class="box stage" style="left:843px; top:70px; width:176px; height:160px;">
+    <div class="t">VAE DECODER</div>
+    <div class="s">0.68 GB</div>
+    <div class="s">role: latent to pixels</div>
+  </div>
+
+  <!-- output -->
+  <div class="box output" style="left:1050px; top:105px; width:120px; height:90px;">
+    <div class="t">PNG</div>
+  </div>
+
+  <!-- arrow labels -->
+  <div class="captionline" style="left:493px; top:234px;">conditioning</div>
+  <div class="captionline" style="left:826px; top:234px;">latent</div>
+
+  <!-- weight files -->
+  <div class="section">files it loads</div>
+  <div class="box weight" style="left:30px; top:350px; width:285px; height:130px;">
+    <div class="n">qwen3vl_8b_int8_convrot.safetensors</div>
+    <div class="g">9.35 GB</div>
+    <div class="p">models/text_encoders/</div>
+  </div>
+  <div class="box weight" style="left:457px; top:350px; width:285px; height:130px;">
+    <div class="n">qwen_image_2.1_int8_convrot.safetensors</div>
+    <div class="g">7.26 GB</div>
+    <div class="p">models/diffusion_models/</div>
+  </div>
+  <div class="box weight" style="left:884px; top:350px; width:285px; height:130px;">
+    <div class="n">qwen_image_2.1_vae_bf16.safetensors</div>
+    <div class="g">0.68 GB</div>
+    <div class="p">models/vae/</div>
+  </div>
+
+  <!-- notes at the bottom -->
+  <div class="box note" style="left:30px; top:515px; width:730px; height:70px;">
+    <div class="s">the ComfyUI node "Qwen 2.1 Fast Generate" runs all three and returns an IMAGE</div>
+  </div>
+  <div class="box note" style="left:790px; top:515px; width:380px; height:70px;">
+    <div class="s">ComfyUI UI: http://127.0.0.1:8188</div>
+  </div>
+
+</div>
+</body>
+</html>

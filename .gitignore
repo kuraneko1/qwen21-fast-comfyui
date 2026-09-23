@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+# local artifacts: never commit a run's output or the author's own input images
+output/
+input/
+.venv/
+*.orig
+*.rej
+
