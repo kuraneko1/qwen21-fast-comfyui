@@ -130,10 +130,11 @@ Connect a reference image and it stops being "generate from text" and becomes "e
 | 3 | 36.4 s |
 
 The reason is that each reference image adds about 4096 tokens' worth of information to the text encoder
-and the image generator. Budget roughly +9–10 seconds per image and you will be fine. When VRAM is tight,
-setting `reference_fit` to `keep original size` uses the reference image without shrinking it, which saves
-time only when the reference is larger than the output (at 1024x1024 the two modes measure the same,
-15.9 s vs 16.7 s).
+and the image generator. Budget roughly +9–10 seconds per image and you will be fine. `reference_fit`
+decides how references are sized: `keep original size` uses the reference without shrinking it, which saves
+time only when the reference is **smaller** than the output (match output shrinks a reference down to the
+output area). A reference larger than the output makes it slower, not faster. At 1024x1024 the two modes
+measure the same, 15.9 s vs 16.7 s.
 
 Both bundled editing workflows load the source image that `install.sh` places at
 `ComfyUI/input/qwen21_demo_source.png`. To use your own image, select it in the LoadImage node.
@@ -144,10 +145,10 @@ Both bundled editing workflows load the source image that `install.sh` places at
 |---|---|---|
 | input | `prompt` | describe the new image, or, when editing, what to change and what to keep |
 | input | `aspect_ratio` × `megapixels` | aspect ratio (1:1 / 4:3 / 3:4 / 3:2 / 2:3 / 16:9 / 9:16) and size (0.5 / 1 / 2 / 4 MP). **1MP = 1024x1024, 4MP = 2048x2048**. With a reference connected the output takes the reference's aspect ratio, so `aspect_ratio` is ignored; `megapixels` then fixes the **area** (a 16:9 reference at `megapixels=2` comes out 1920x1088 - not 1440 wide, but about the same area as 1440x1440) |
-| input | `steps` | 0 = automatic (**12 steps when the long side is 1024 px or less**, 20 above that. 1:1 at 1MP takes 12; 4:3 and 16:9 at 1MP have a 1184 / 1376 px long side, so they take 20) |
+| input | `steps` | 0 = automatic (**12 steps when the long side is 1024 px or less**, 20 above that. 1:1 at 1MP takes 12; 4:3 and 16:9 at 1MP have a 1184 / 1376 px long side, so they take 20). When editing, this is judged on the `aspect_ratio` and `megapixels` widgets, so the long side that counts is the widget's, not the reference's real output (1376x768 still takes 12) |
 | input | `seed` | the random seed. Text-to-image and `qwen21_fast_edit` use `randomize` for a new image each run. Only `qwen21_fast_edit_underwater_fixed` uses `fixed` (`274968494187645`) to reproduce the underwater example |
 | input | `count` | how many to make at once (seed, seed+1, …). The results come back together |
-| input | `reference_fit` | how reference images are handled (`match output` = match the output size / `keep original size` = keep the reference's original size. The latter is only lighter when the reference is bigger than the output; with a 1024x1024 reference the two measure the same, 15.9 s vs 16.7 s) |
+| input | `reference_fit` | how reference images are handled (`match output` = match the output size / `keep original size` = keep the reference's original size. The latter is only lighter when the reference is **smaller** than the output; when the reference is bigger, `match output` is the lighter one, 15.9 s vs 16.7 s) |
 | input | `unet_name` / `clip_name` / `vae_name` | which of the three weight files (the default is the three above) |
 | input (optional) | `image_1` … `image_4` | reference images. Connect even one and it goes into edit mode (the 4 is this node's slot count, not the model's limit) |
 | input (optional) | `model` / `clip` / `vae` | if you already have loaders in your graph, you can reuse them |
@@ -217,7 +218,7 @@ A rough guide to what changes what:
 | Roughly twice as slow as the measurements above | cfg is above 1.0 / you are using GGUF weights | Set cfg to 1.0 and use the int8_convrot weights |
 | Running the same content finished in 0.1 seconds | ComfyUI is caching the identical graph (normal behaviour) | Change the seed when you measure the time |
 | `aimdo memory compile error` | `QwenImage21Cache` (the prefix KV cache) int8/int4 does not work in this environment | Leave it at `default` (the node does not expose it) |
-| It fails or is far too slow with 3–4 reference images | Each reference consumes about 4096 tokens | Set `reference_fit` to `keep original size` / use fewer images |
+| It fails or is far too slow with 3–4 reference images | Each reference consumes about 4096 tokens | Use fewer images / lower `megapixels` / shrink the references before feeding them in (a big reference with `keep original size` is the heaviest case) |
 | "unknown model architecture" in a GGUF loader | GGUF re-packs of this model are missing metadata | Do not use GGUF here; use the int8_convrot safetensors |
 
 ## 9. Things that will bite you

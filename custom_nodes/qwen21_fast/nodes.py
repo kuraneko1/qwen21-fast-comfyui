@@ -72,6 +72,15 @@ def _load_vae(name):
     return _cached("vae", name, lambda n: comfy_nodes.VAELoader().load_vae(n)[0])
 
 
+def _resolution_for(megapixels):
+    # The text encoder reads `resolution` as the square root of the output AREA: it sizes each
+    # reference to sqrt(resolution^2 * ratio) x sqrt(resolution^2 / ratio). So an edit gets the
+    # area budget, not a length - passing the widget's long side instead makes a 16:9 reference
+    # come out at 1.8x the requested area. 0.5/1/2/4 MP -> 736/1024/1440/2048, which is the same
+    # value as the long side at 1:1 (the default), so nothing changes for the usual case.
+    return max(32, round(math.sqrt(float(megapixels) * 1024 * 1024) / 32) * 32)
+
+
 def _size(aspect_ratio, megapixels):
     # 1 MP is the model's 1024x1024 and 4 MP its native 2048x2048, so a "megapixel" here is
     # 1024*1024 pixels rather than 1e6 (which would give 992x992).
@@ -114,7 +123,10 @@ class Qwen21FastGenerate:
                 "steps": ("INT", {"default": 0, "min": 0, "max": 100,
                                   "tooltip": "0 = automatic: 12 steps when the long side is "
                                              "1024 px or less (1:1 at 1 MP and smaller), 20 "
-                                             "above that (2 MP+, and 4:3 or 16:9 at 1 MP)."}),
+                                             "above that (2 MP+, and 4:3 or 16:9 at 1 MP). "
+                                             "When editing this is judged on the aspect_ratio "
+                                             "and megapixels widgets, not on the reference, so "
+                                             "a wide reference can still take 12 steps."}),
                 # control_after_generate=True is how a core node enables the seed's
                 # "control after generate" widget; the frontend defaults that to randomize,
                 # so a fresh node gives a new image each run and the shipped workflows store
@@ -133,8 +145,10 @@ class Qwen21FastGenerate:
                                                        "to the text encoder. A 1024 reference "
                                                        "costs ~4096 tokens. 'keep original size' "
                                                        "only saves time when the reference is "
-                                                       "bigger than the output; at 1024x1024 the "
-                                                       "two modes measure the same."}),
+                                                       "smaller than the output (match output "
+                                                       "shrinks a big reference down to the "
+                                                       "output area); at 1024x1024 the two modes "
+                                                       "measure the same."}),
                 "unet_name": (folder_paths.get_filename_list("diffusion_models"),
                               {"default": DEFAULT_UNET}),
                 "clip_name": (folder_paths.get_filename_list("text_encoders"),
@@ -178,10 +192,12 @@ class Qwen21FastGenerate:
             # Measured defaults. The official edit template uses 25 steps; a same-seed A/B at
             # 12 vs 20 steps had 12 holding the subject slightly better and ~4 s faster, so the
             # same rule is used in both modes. Keyed on the long side, not the area, so 1 MP at
-            # 4:3 or 16:9 (1184x896, 1376x768) also takes 20.
+            # 4:3 or 16:9 (1184x896, 1376x768) also takes 20. In edit mode the widgets decide,
+            # not the reference: a 1:1/1 MP widget with a wide reference still takes 12.
             steps = 12 if max(width, height) <= 1024 else 20
         # 0 tells the text encoder to leave each reference at its own size.
-        ref_resolution = 0 if reference_fit == "keep original size" else max(width, height)
+        ref_resolution = (0 if reference_fit == "keep original size"
+                          else _resolution_for(megapixels))
 
         (positive, negative, te_latent) = TextEncodeQwenImage21.execute(
             clip=clip, prompt=prompt, negative_prompt="",
@@ -191,8 +207,8 @@ class Qwen21FastGenerate:
         latent = te_latent if refs else comfy_nodes.EmptyLatentImage().generate(width, height, 1)[0]
         if refs:
             # In edit mode the latent comes from the text encoder and follows the first
-            # reference's aspect ratio, so the aspect_ratio / megapixels widgets do not
-            # decide the output size. Report what the latent really is.
+            # reference's aspect ratio, so the widgets do not decide the output shape (they
+            # still set the area). Report what the latent really is.
             try:
                 fmt = model.get_model_object("latent_format")
                 ratio = int(fmt.spacial_downscale_ratio)
