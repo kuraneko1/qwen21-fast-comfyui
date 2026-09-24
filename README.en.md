@@ -15,52 +15,209 @@ big GPU. Using the official quantized weights brings it down to **17GB on disk**
 have to write any Python — adding **a single node** to ComfyUI is all it takes.
 
 > [!WARNING]
-> **These instructions assume Linux (verified on Ubuntu 24.04).** They do not work as-is on Windows
-> (use WSL2, or install by hand → [2-4](#2-4-this-assumes-linux-windows-needs-a-different-route)). Some commands
-> differ on macOS too.
+> **These instructions assume Linux (verified on Ubuntu 24.04).** Windows / macOS need a different route.
+> See [Requirements](#requirements) and [10-3. OS notes](#10-3-os-notes).
 
 ![the same reference image turned into 3 scenes](docs/collage_en.png)
 
-*The same 1 reference image with only the surroundings changed, 3 ways (→ [2-9](#2-9-an-editing-demo-1-illustration-3-scenes)).*
+*The same 1 reference image with only the surroundings changed, 3 ways (→ [3. Editing demo](#3-editing-demo)).*
+
+## Requirements
+
+| Item | Verified / expected here |
+|---|---|
+| OS | **Linux** (verified on Ubuntu 24.04) |
+| GPU | Measured on an **RTX 4070 12GB**. This is not a claim that 12GB is a universal minimum |
+| ComfyUI | **0.37 or newer** (`TextEncodeQwenImage21` is required) |
+| Python | `python3` available |
+| Hugging Face CLI | `hf` available. If needed: `pip install -U huggingface_hub` |
+| Disk | About 17GB for the weights plus headroom. If the model store and ComfyUI are on different filesystems, placement falls back to copying and needs additional space on the ComfyUI side |
+
+The default assumes ComfyUI is at `~/ComfyUI`. If it lives elsewhere, pass `COMFY=/path/to/ComfyUI`.
 
 ## Table of contents
 
-- [1. What runs, and what each piece is for](#1-what-runs-and-what-each-piece-is-for)
-  - [1-1. What the weight files are, and where to get them](#1-1-what-the-weight-files-are-and-where-to-get-them)
-  - [1-2. What each piece does](#1-2-what-each-piece-does)
-  - [1-3. The exact names of the models used (down to the quantization)](#1-3-the-exact-names-of-the-models-used-down-to-the-quantization)
-  - [1-4. Editing with reference images (up to 4 in this node)](#1-4-editing-with-reference-images-up-to-4-in-this-node)
-- [2. Quick start (assuming you let an AI do it)](#2-quick-start-assuming-you-let-an-ai-do-it)
-  - [2-1. The prompt to hand straight to an AI](#2-1-the-prompt-to-hand-straight-to-an-ai)
-  - [2-2. (A) Install with the script (recommended)](#2-2-a-install-with-the-script-recommended)
-  - [2-3. (B) Install by hand](#2-3-b-install-by-hand)
-  - [2-4. This assumes Linux (Windows needs a different route)](#2-4-this-assumes-linux-windows-needs-a-different-route)
-  - [2-5. Where it runs (the port)](#2-5-where-it-runs-the-port)
-  - [2-6. You can also have an AI write the node](#2-6-you-can-also-have-an-ai-write-the-node)
-  - [2-7. Verifying it works](#2-7-verifying-it-works)
-  - [2-8. Environment variables (the only per-machine part)](#2-8-environment-variables-the-only-per-machine-part)
-  - [2-9. An editing demo (1 illustration, 3 scenes)](#2-9-an-editing-demo-1-illustration-3-scenes)
-- [3. Inside the node](#3-inside-the-node)
-- [4. Measured numbers](#4-measured-numbers)
-- [5. When you want better quality](#5-when-you-want-better-quality)
-- [6. Troubleshooting](#6-troubleshooting)
-- [7. Things that will bite you (I hit every one of them)](#7-things-that-will-bite-you-i-hit-every-one-of-them)
-- [8. Files](#8-files)
-- [9. License](#9-license)
-- [10. Sources](#10-sources)
+- [Requirements](#requirements)
+- [1. Quick start](#1-quick-start)
+  - [1-1. Install](#1-1-install)
+  - [1-2. Verify](#1-2-verify)
+  - [1-3. Use it in ComfyUI](#1-3-use-it-in-comfyui)
+- [2. Let an AI agent do the setup](#2-let-an-ai-agent-do-the-setup)
+- [3. Editing demo](#3-editing-demo)
+- [4. What is running](#4-what-is-running)
+  - [4-1. What the weight files are, and where to get them](#4-1-what-the-weight-files-are-and-where-to-get-them)
+  - [4-2. What each piece does](#4-2-what-each-piece-does)
+  - [4-3. Exact model names and quantization](#4-3-exact-model-names-and-quantization)
+  - [4-4. Editing with reference images](#4-4-editing-with-reference-images)
+- [5. Inside the node](#5-inside-the-node)
+- [6. Measured numbers](#6-measured-numbers)
+- [7. When you want better quality](#7-when-you-want-better-quality)
+- [8. Troubleshooting](#8-troubleshooting)
+- [9. Things that will bite you](#9-things-that-will-bite-you)
+- [10. Manual installation and configuration](#10-manual-installation-and-configuration)
+- [11. Development and customization](#11-development-and-customization)
+- [12. Files](#12-files)
+- [13. License](#13-license)
+- [14. Sources](#14-sources)
 
+## 1. Quick start
 
-## 1. What runs, and what each piece is for
+### 1-1. Install
+
+If ComfyUI is already installed on Linux, this is the shortest path:
+
+```bash
+git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
+cd qwen21-fast-comfyui
+./install.sh --dry-run    # show what it would do
+./install.sh              # download ~17GB of weights and install
+```
+
+If ComfyUI is somewhere other than `~/ComfyUI`:
+
+```bash
+COMFY=/path/to/ComfyUI ./install.sh
+```
+
+If the script could not restart ComfyUI automatically, restart it once using your usual method.
+
+### 1-2. Verify
+
+```bash
+./check.sh                 # syntax checks on the files (nothing is executed)
+python3 test_qwen21.py     # actually try generating (ComfyUI must be running)
+```
+
+`test_qwen21.py` **creates its own reference image** in the first test and then reuses it for the edit
+test, so it works as-is even on a machine that has never generated a single image. On my environment the
+output looks like this.
+
+```
+t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
+t2i_16x9_2mp       success  exec=  30.7s wall=  31.0s qwen21_test_t2i_16x9_2mp_00001_.png
+t2i_1mp_count3     success  exec=  24.2s wall=  25.0s qwen21_test_t2i_1mp_count3_00001_.png, ...
+edit_match_output  success  exec=  15.9s wall=  16.1s qwen21_test_edit_match_output_00001_.png
+edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size_00001_.png
+
+5/5 ok
+```
+
+To edit an image you already have, do this.
+
+```bash
+python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"
+```
+
+### 1-3. Use it in ComfyUI
+
+Open ComfyUI and choose **Workflows → `qwen21_fast_t2i`** for text-to-image. For reference-image editing, use **`qwen21_fast_edit`**.
+
+The default UI is <http://127.0.0.1:8188>.
+
+![ComfyUI as it opens](docs/ui_workflow_en.png)
+
+Type a prompt and press Run; the result appears in the Save Image node.
+
+![right after a run](docs/ui_used_en.png)
+
+For port changes or access from another device on your LAN, see [10-5. Ports and connection](#10-5-ports-and-connection).
+
+## 2. Let an AI agent do the setup
+
+If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, you can hand it the following instructions directly.
+
+Copy the box below and paste it into your AI. If it is an agent running in your environment (Ubuntu and so
+on), it will just do it for you.
+
+```
+I want to add Qwen-Image-2.1 to ComfyUI using the steps in this repository.
+https://github.com/kuraneko1/qwen21-fast-comfyui
+
+What I want you to do:
+1. git clone the repository above
+2. Check what ./install.sh --dry-run would do, and if there is no problem, run ./install.sh
+   (it downloads about 17GB of weights, so it takes a while)
+3. Run ./check.sh for the syntax checks
+4. Restart ComfyUI and run python3 test_qwen21.py to test generation
+   (5/5 ok means it worked)
+
+Assumptions: Linux (Ubuntu-family), ComfyUI is at ~/ComfyUI, and the hf command and python3 are available.
+If your ComfyUI path is different, run install.sh with COMFY=/path/to/ComfyUI in front of it.
+If there is anything you are unsure about, ask me before you run it.
+```
+
+## 3. Editing demo
+
+Connect a reference image to `image_1` and you are in edit mode. This is the same 1 illustration with the
+character's identity, outfit and art style kept while only the surroundings change (the collage at the top
+is those 4 images).
+
+| | scene | seed |
+|---|---|---|
+| original | a plain-background character illustration (1672x941) | — |
+| 1 fire | clothes and surroundings engulfed in flames | 1030019892377945 |
+| 2 underwater | water spiralling around her like a deep-sea empress | 274968494187645 |
+| 3 rain | struck by torrential rain | 73346377262621 |
+
+<details>
+<summary>the 3 prompts in full</summary>
+
+```text
+Edit the reference image: keep the character clearly recognizable while placing her in a dramatic scene where her clothing and the space around her are engulfed in intense flames. Preserve her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall anime style. Change her expression so that she looks slightly teary and on the verge of crying, with watery eyes and a distressed, trembling expression, while still remaining cute and expressive.
+
+Add vivid fire surrounding her body, sleeves, skirt, and the air around her, with bright orange flames, glowing embers, smoke, sparks, heat distortion, and strong cinematic fire lighting. The flames should look powerful and visually striking, but do not show gore, injuries, or graphic burns. Keep the character as the clear focal point. Highly detailed, dramatic, emotional, and visually impactful.
+```
+
+```text
+Edit the reference image: transform the character into a dramatic deep-sea empress scene while preserving her core identity, recognizable face, blue gradient long hair, bright blue eyes, playful smug expression, maid outfit, whale-themed details, and overall cute anime style. Surround her with a powerful vortex of ocean water, glowing bioluminescent particles, giant splashes, swirling currents, floating bubbles, and luminous deep-sea light rays. Add a majestic underwater atmosphere with translucent water ribbons spiraling around her body, as if she is commanding the sea. Enhance the whale/ocean motif with subtle spectral whale silhouettes and elegant aquatic energy. Make the scene highly dynamic, cinematic, magical, and visually striking, with strong motion, dramatic lighting, and rich blue tones. Keep the character as the clear focal point.
+```
+
+```text
+Edit the reference image: place the character in an intense torrential rainstorm while preserving her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall cute anime style. Change her expression slightly so that she looks teary and on the verge of crying, with watery eyes, a trembling mouth, and a sad, distressed but still cute expression.
+
+Add extremely heavy pouring rain throughout the scene, with dense rain streaks, splashing water, mist, droplets, wet hair, soaked clothing, puddles, and strong storm atmosphere. Make it look like she is being struck by a violent downpour. Add visible rain in the foreground and background, dramatic water splashes, wet shine on the outfit, and cinematic storm lighting. Her hair and clothes should appear drenched and slightly affected by wind and rain, while keeping her original design clearly recognizable.
+
+Make the final result highly detailed, emotional, cinematic, and visually striking. No gore, no injury, no burial, no extra characters. Keep the character as the clear focal point.
+```
+</details>
+
+**Settings**: the reference is 1672x941 and the output is **1376x768** (same aspect ratio, 1 MP of area).
+`aspect_ratio` 1:1 / `megapixels` 1 / `steps` 0 (auto = 12 steps) / `reference_fit` `match output` /
+cfg 1.0 / euler simple. About **20 s per image** (RTX 4070 12GB, model resident; → [6. Measured numbers](#6-measured-numbers)).
+
+**Prompt tips** (what these 3 images taught me)
+
+1. **Name what must stay** - list `core identity, recognizable face, long blue gradient hair, blue eyes,
+   maid outfit, whale-themed details, and overall anime style`. This is what decides whether it still looks
+   like the same character
+2. **An expression change is something you ask for** - fire and rain say `teary, on the verge of crying`,
+   underwater says `playful smug expression`. You can steer the face deliberately while keeping the identity
+3. **Write the environment in scene words** - `intense flames` / `vortex of ocean water` / `torrential
+   rainstorm`, plus light (`cinematic lighting`) and motion (`swirling currents`)
+4. **Say what must not happen** - `no gore, no injury, no burial, no extra characters`. Worth including so a
+   viewer cannot misread the image
+5. **To hold the framing, state the preservation explicitly** - environment words also move the composition
+   (measured: a version that only said "a field of flames around him" pushed the top of the head from 2% to
+   10% down the frame and widened the crop to the waist). For an exactly fixed frame, mask (inpaint) the
+   background instead; this node has no mask input
+
+The CLI equivalent:
+
+```bash
+python3 test_qwen21_edit.py ref.png "<prompt>" 1 --seed 1030019892377945
+```
+
+## 4. What is running
 
 ![the pipeline](docs/pipeline_en.png)
 
 *The prompt and the reference image flow left to right: text encoder -> image generator -> VAE -> PNG.*
 
-### 1-1. What the weight files are, and where to get them
+### 4-1. What the weight files are, and where to get them
 
 > [!TIP]
 > **You do not have to do this download by hand.** The `install.sh` in the
-> [quick start](#2-quick-start-assuming-you-let-an-ai-do-it) below does it for you (that is the fast path).
+> [quick start](#1-quick-start) below does it for you (that is the fast path).
 > This section is for checking what gets downloaded, or for installing by hand.
 
 You need three files, about 17GB in total. Download them with the `hf` command (installed by
@@ -88,9 +245,9 @@ Put the files you downloaded in the following ComfyUI folders (do not rename the
 | `qwen3vl_8b_int8_convrot.safetensors` | `ComfyUI/models/text_encoders/` |
 | `qwen_image_2.1_vae_bf16.safetensors` | `ComfyUI/models/vae/` |
 
-(If you use `install.sh`, it does both of these for you automatically. → [2. Quick start](#2-quick-start-assuming-you-let-an-ai-do-it))
+(If you use `install.sh`, it does both of these for you automatically. → [1. Quick start](#1-quick-start))
 
-### 1-2. What each piece does
+### 4-2. What each piece does
 
 Only five things are involved. This repository provides **the bottom two**; the top ones are plain
 ComfyUI and plain model files.
@@ -114,7 +271,7 @@ how reference images are handled) are scattered across four boxes, so I bundled 
 use into one box. Inside it is just a combination of ComfyUI's standard nodes, so it keeps working even
 when ComfyUI is updated.
 
-### 1-3. The exact names of the models used (down to the quantization)
+### 4-3. Exact model names and quantization
 
 What I am using is **not the original that Qwen distributes, but the build that has been converted and
 quantized for ComfyUI**.
@@ -133,7 +290,7 @@ quantized for ComfyUI**.
   you are thinking about commercial use).
   - Original: <https://github.com/QwenLM/Qwen-Image-2.1/blob/main/LICENSE>
 
-### 1-4. Editing with reference images (up to 4 in this node)
+### 4-4. Editing with reference images
 
 The node has inputs named `image_1` through `image_4`, and you can pass it **up to 4 reference images in this node**.
 Connect a reference image and it stops being "generate from text" and becomes "edit the reference image"
@@ -161,50 +318,124 @@ time only when the reference is larger than the output (at 1024x1024 the two mod
 The bundled `workflows/qwen21_fast_edit.json` loads an image named `example.png`. Put your own image at
 `ComfyUI/input/example.png`, or pick another file in the LoadImage node.
 
-## 2. Quick start (assuming you let an AI do it)
+## 5. Inside the node
 
-> [!IMPORTANT]
-> **These steps are written on the assumption that you have an AI (ChatGPT, Claude, a local agent, and so on) do them.**
-> The reason is simple: that is how I put it together myself. You do not have to understand each command and type it in by hand.
-> **You can do it manually too**, but it is easy to get stuck on the downloads and the path settings, so leaving it to an AI is more reliable and less trouble.
-> (The steps themselves are written out both as [2-2. Install with the script](#2-2-a-install-with-the-script-recommended) and
-> [2-3. Install by hand](#2-3-b-install-by-hand).)
+| in / out | name | meaning |
+|---|---|---|
+| input | `prompt` | the prompt |
+| input | `aspect_ratio` × `megapixels` | aspect ratio (1:1 / 4:3 / 3:4 / 3:2 / 2:3 / 16:9 / 9:16) and size (0.5 / 1 / 2 / 4 MP). **1MP = 1024x1024, 4MP = 2048x2048**. With a reference connected the output takes the reference's aspect ratio, so `aspect_ratio` is ignored; `megapixels` then fixes the **area** (a 16:9 reference at `megapixels=2` comes out 1920x1088 - not 1440 wide, but about the same area as 1440x1440) |
+| input | `steps` | 0 = automatic (**12 steps when the long side is 1024 px or less**, 20 above that. 1:1 at 1MP takes 12; 4:3 and 16:9 at 1MP have a 1184 / 1376 px long side, so they take 20) |
+| input | `seed` | the random seed. **Randomized by default**: the node enables the frontend's `control after generate` widget, so both a freshly added node and the shipped workflows come up as `randomize` and every run gives a new image. Switch it to `fixed` and note the seed to reproduce one |
+| input | `count` | how many to make at once (seed, seed+1, …). The results come back together |
+| input | `reference_fit` | how reference images are handled (`match output` = match the output size / `keep original size` = keep the reference's original size. The latter is only lighter when the reference is bigger than the output; with a 1024x1024 reference the two measure the same, 15.9 s vs 16.7 s) |
+| input | `unet_name` / `clip_name` / `vae_name` | which of the three weight files (the default is the three above) |
+| input (optional) | `image_1` … `image_4` | reference images. Connect even one and it goes into edit mode (the 4 is this node's slot count, not the model's limit) |
+| input (optional) | `model` / `clip` / `vae` | if you already have loaders in your graph, you can reuse them |
+| output | `image` | the generated image (IMAGE) |
+| output | `info` | one line with the settings and the elapsed time (real example: `t2i refs=0 1024x1024 12 steps cfg=1.0 euler/simple seeds=0..0 13.2s (13.2s each)`). In edit mode it prints the **real output size**, which follows the reference image's aspect ratio |
 
-### 2-1. The prompt to hand straight to an AI
+**I deliberately do not expose cfg (how closely it follows the prompt) or the sampler.** For this model
+cfg 1.0 and euler/simple are the official settings, and anything else only makes it slower with no upside
+(→ [9. Things that will bite you](#9-things-that-will-bite-you)). There is no
+negative prompt field either: at cfg 1.0 ComfyUI skips the unconditional pass entirely
+(`math.isclose(cond_scale, 1.0)` in `comfy/samplers.py`), so anything typed there would do nothing.
 
-Copy the box below and paste it into your AI. If it is an agent running in your environment (Ubuntu and so
-on), it will just do it for you.
+## 6. Measured numbers
 
-```
-I want to add Qwen-Image-2.1 to ComfyUI using the steps in this repository.
-https://github.com/kuraneko1/qwen21-fast-comfyui
+These are the numbers from my environment (RTX 4070 12GB, the official quantized weights). They are
+compared with the same prompt and the same seed.
 
-What I want you to do:
-1. git clone the repository above
-2. Check what ./install.sh --dry-run would do, and if there is no problem, run ./install.sh
-   (it downloads about 17GB of weights, so it takes a while)
-3. Run ./check.sh for the syntax checks
-4. Restart ComfyUI and run python3 test_qwen21.py to test generation
-   (5/5 ok means it worked)
+| case | time |
+|---|---:|
+| 1024x1024, 12 steps, cfg 1.0 | **9.6 s** (13–14 s right after a ComfyUI restart) |
+| 1024x1024, 25 steps (equivalent to the official workflow) | 14.0 s |
+| 1920x1088 (16:9, 2MP), 20 steps | 30.7 s |
+| **2048x2048 (4MP), 20 steps** | **90.5 s** |
+| 1024x1024, 3 images in one go (`count=3`) | 24.2 s (about 8 s per image) |
+| edit with 1 reference image (1024x1024, 12 steps) | 17.0 s |
+| edit with 3 reference images | 36.4 s |
 
-Assumptions: Linux (Ubuntu-family), ComfyUI is at ~/ComfyUI, and the hf command and python3 are available.
-If your ComfyUI path is different, run install.sh with COMFY=/path/to/ComfyUI in front of it.
-If there is anything you are unsure about, ask me before you run it.
-```
+- Per step: about 0.34 s at 1MP, about 4.3 s at 4MP
+- The fixed cost (text encoding, VAE decoding, swapping models) is about 5 s
+- The 17GB of weights do not fit entirely in 12GB of VRAM, so ComfyUI swaps in the parts it needs
+  automatically. That is why only right after a restart it takes a few extra seconds, and why `count=3`
+  is cheaper per image than running three separate times
+- The raw log I measured: `MEASUREMENTS.md`
 
-### 2-2. (A) Install with the script (recommended)
+## 7. When you want better quality
 
-```bash
-git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
-cd qwen21-fast-comfyui
-./install.sh --dry-run    # just prints what it would do (changes nothing)
-./install.sh              # actually do it
-```
+- **Increase the step count** (`steps` from 0 → 20–30). The time grows about proportionally with the step count (about 0.34 s per step at 1MP, plus roughly 5 s of fixed cost; 12 → 25 steps is x1.5).
+  12 steps is plenty clean already, but the more you add the more stable the fine details and text become
+- **Increase the resolution** (`megapixels` from 1 → 4). The composition is less likely to fall apart and
+  there is more detail, but the time becomes about 9 times longer (9.6 → 90.5 s at the default steps)
+- **Change the seed and pick**. Setting `count` to 3–4 lets you get several at once, which makes choosing
+  easier (and each one is a little cheaper)
+- **Raise the resolution of the reference image, or set `reference_fit` to `match output`**. The fidelity of the edit goes up
+- **Write the prompt carefully**. Splitting what you want changed from what you want kept, like "keep ~ as
+  it is" or "only the background ~", works well
+- **Do not touch cfg** (leave it at 1.0). Raising it only doubles the time, and the image becomes
+  over-contrasted
+- The official release also distributes a prompt-rewriting model (`Qwen-Image-2.1-PE-T2I`). I have not
+  verified it, but it is said to be able to expand a short prompt into a detailed one and raise the quality
+
+A rough guide to what changes what:
+
+| what you change | time | VRAM | quality |
+|---|---|---|---|
+| steps 12 → 25 | ×1.5 (9.6 → 14.0 s; the fixed cost dominates, so it does not double) | about the same | a little better |
+| resolution 1MP → 4MP | ×9.4 (9.6 → 90.5 s at the default steps; ×5.9 = 56.2 s if the step count is held at 12) | higher | better (composition is stable) |
+| +1 reference image | +9–10 s | higher | the fidelity of the edit goes up |
+| cfg 1.0 → 6.0 | ×2 | higher | worse (the image becomes too heavy) |
+
+## 8. Troubleshooting
+
+| symptom | cause | fix |
+|---|---|---|
+| An error saying `mat1 and mat2 shapes cannot be multiplied (… x4096 and 1024x2048)` | CLIPLoader is reading another workflow's encoder (the 0.6B or 4B one) | Load `qwen3vl_8b_int8_convrot.safetensors` with type `qwen_image` |
+| "Qwen 2.1 Fast Generate" does not appear in the node list | Custom nodes are only read at startup / the folder is in the wrong place | Restart ComfyUI. Check that `custom_nodes/qwen21_fast/nodes.py` exists |
+| `size mismatch for encoder.conv_in.weight` in the VAELoader | The VAE inside unsloth's FP8 repository uses the **diffusers layout** (2D convolutions, `encoder.conv_in` / `decoder.conv_out`), while ComfyUI's Qwen-Image-2.1 expects the **modelspec layout** (3D convolutions, `encoder.conv1` / `decoder.head.2`) | Use Comfy-Org's `qwen_image_2.1_vae_bf16.safetensors` (675,509,688 bytes) |
+| Roughly twice as slow as the measurements above | cfg is above 1.0 / you are using GGUF weights | Set cfg to 1.0 and use the int8_convrot weights |
+| Running the same content finished in 0.1 seconds | ComfyUI is caching the identical graph (normal behaviour) | Change the seed when you measure the time |
+| `aimdo memory compile error` | `QwenImage21Cache` (the prefix KV cache) int8/int4 does not work in this environment | Leave it at `default` (the node does not expose it) |
+| It fails or is far too slow with 3–4 reference images | Each reference consumes about 4096 tokens | Set `reference_fit` to `keep original size` / use fewer images |
+| "unknown model architecture" in a GGUF loader | GGUF re-packs of this model are missing metadata | Do not use GGUF here; use the int8_convrot safetensors |
+
+## 9. Things that will bite you
+
+1. **Raising cfg above 1.0 doubles the computation.** The official setting is 1.0. Most of the sample code
+   out there uses something like 6.0, and this was the biggest trap of all.
+2. **The GGUF re-packs are slow in ComfyUI.** unsloth's **DiT GGUF carries no architecture information**
+   (`kv_count=0`), so ComfyUI-GGUF falls back to its guessing path and reports `Unknown model architecture!`
+   (adding a `qwen_image` signature to `tools/convert.py` makes it load). Once it loads, six runs per arm with
+   the same prompt and seed give **11.8 s (int8) vs 24.3 s (GGUF) at 1024x1024 / 12 steps - a median ratio of
+   about 2.0x**, and the sampler's own progress bar shows **0.52 vs 1.38 s/step (about 2.6x)**: ComfyUI cannot
+   use its int8 kernels and dequantizes every step, while the fixed cost both arms pay (~6 s) dilutes the ratio
+   at 12 steps. Note that the **text encoder GGUF does carry correct metadata**
+   (`general.architecture=qwen3vl`, 45 keys) - it is not the cause; the DiT is.
+   For reference, the **vendor's own app (Unsloth Desktop) was measured with the same GGUF**: on 12 GB it
+   cannot select the int8 path (it wants everything resident - 34.9 GB - and cannot offload it), so it runs
+   GGUF only, at **29.5 s** (section 3-2 of [MEASUREMENTS.md](MEASUREMENTS.md)).
+3. **There are two kinds of VAE, and they differ in layout.** Both are **4-channel (alpha-capable)**; the
+   difference is the shape of the weights. Comfy-Org's uses the **modelspec layout** (3D convolutions,
+   `encoder.conv1` / `decoder.head.2`, kernel `[1,3,3]`), the one inside unsloth's FP8 repository uses the
+   **diffusers layout** (2D convolutions, `encoder.conv_in` / `decoder.conv_out`, kernel `[3,3]`). ComfyUI
+   expects the former, so picking the latter gives you a mountain of `size mismatch` (the 3-channel Qwen VAE
+   belongs to **Qwen-Image 1.0** and is not interchangeable).
+4. **ComfyUI caches the same graph.** With the same prompt and seed it returns in 0.1 seconds and the GPU
+   does nothing.
+5. **`QwenImage21Cache` (quantizing the prefix KV cache) does not work in this environment.** Both int8 and
+   int4 die with `aimdo memory compile error`, so I did not put it in the node.
+6. **Always use the Qwen-Image-2.1 encoder.** If you use a Qwen3-VL of the wrong size, you do not get an
+   easy-to-understand error but a cross-attention shape error.
+
+## 10. Manual installation and configuration
+
+### 10-1. What install.sh does
 
 `install.sh` does these five things and nothing else.
 
 1. Downloads the **three weight files** from the official repository into `$MODELS` (default `~/qwen-image-2.1-models`) (about 17GB, resumable)
-2. **Hardlinks** them into the three ComfyUI folders (they just point at the same file, so the disk is not used twice)
+2. Places them into the three ComfyUI folders. On the same filesystem it uses **hardlinks**, so this needs almost no extra space. Across filesystems it falls back to copying, which needs the same additional space on the ComfyUI side
 3. Copies `custom_nodes/qwen21_fast` into `$COMFY/custom_nodes/` (that is, installing the node)
 4. Copies `workflows/*.json` into `$COMFY/user/default/workflows/` (so they show up in the UI's workflow list)
 5. Restarts ComfyUI (it finds and restarts the `systemd --user` service. If it does not find one it does
@@ -217,12 +448,12 @@ COMFY=/opt/ComfyUI MODELS=/data/qwen21-models ./install.sh
 COMFY_SERVICE=my-comfy.service ./install.sh     # when you want to name the service to restart
 ```
 
-### 2-3. (B) Install by hand
+### 10-2. Install by hand
 
 <details>
 <summary>the steps to install it by hand, without the script (click to open)</summary>
 
-**B1. Download the weights** — run the three commands from [1-1](#1-1-what-the-weight-files-are-and-where-to-get-them).
+**B1. Download the weights** — run the three commands from [4-1](#4-1-what-the-weight-files-are-and-where-to-get-them).
 
 **B2. Put them in place** (do not rename the files)
 
@@ -244,7 +475,7 @@ cp -r /tmp/qwen21-fast-comfyui/custom_nodes/qwen21_fast ~/ComfyUI/custom_nodes/
 
 **B4. Restart ComfyUI** — a running ComfyUI will not notice the new node. Be sure to restart it.
 
-**B5. Run it** — start ComfyUI, open its URL in a browser (see [2-5](#2-5-where-it-runs-the-port)), and
+**B5. Run it** — start ComfyUI, open its URL in a browser (see [10-5](#10-5-ports-and-connection)), and
 either choose **Workflows → `qwen21_fast_t2i`** or build the following two nodes yourself.
 
 ```
@@ -259,7 +490,7 @@ LoadImage ──IMAGE──▶ image_1
 
 </details>
 
-### 2-4. This assumes Linux (Windows needs a different route)
+### 10-3. OS notes
 
 > [!WARNING]
 > **This repository assumes Linux.** What I checked was Ubuntu 24.04. `install.sh` is a bash script, and
@@ -271,12 +502,26 @@ LoadImage ──IMAGE──▶ image_1
 >    ComfyUI would also go on the WSL side (it is a different thing from a ComfyUI installed on the Windows side).
 > 2. **Do it by hand**: in the Windows version of ComfyUI, put the three weight files into
 >    `ComfyUI\models\...` with Explorer and copy the node folder into `custom_nodes`
->    (do the contents of [2-3. Install by hand](#2-3-b-install-by-hand), reading the paths as Windows paths).
+>    (do the contents of [10-2. Install by hand](#10-2-install-by-hand), reading the paths as Windows paths).
 >    Note that Linux commands like `~/ComfyUI`, `mv` and `ln` will not work.
 >
 > macOS will not work with these commands as they are either (the `hf` and python parts are the same, but the paths and the way to restart are different).
 
-### 2-5. Where it runs (the port)
+### 10-4. Environment variables
+
+| variable | default | used by |
+|---|---|---|
+| `COMFY` | `$HOME/ComfyUI` | `install.sh` (where ComfyUI is) |
+| `MODELS` | `$HOME/qwen-image-2.1-models` | `install.sh` (where the weights are downloaded) |
+| `COMFY_SERVICE` | auto-detects a `systemd --user` service containing "comfy" | `install.sh` |
+| `COMFY_DIR` | `$HOME/ComfyUI` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` / `check.sh` |
+| `COMFY_HOST` | `http://127.0.0.1:8188` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` |
+| `CHROME` | `/usr/bin/google-chrome` | `docs/capture_ui.py` / `docs/render_diagram.sh` (only when regenerating images) |
+
+Paths, host names, device IDs and credentials are not written directly into the code: the ComfyUI location,
+the ComfyUI URL, the service name and the browser path all come from the environment variables above.
+
+### 10-5. Ports and connection
 
 ComfyUI listens on **`http://127.0.0.1:8188`** by default. **Just open that URL in your browser** and the
 UI appears (`127.0.0.1` means "this very PC you are using", so you open it in a browser on the same PC).
@@ -316,7 +561,9 @@ python main.py --port 8188 --listen 127.0.0.1
 | If you want to open it from another PC or a phone | Use `--listen 0.0.0.0` (be careful: everyone on the same LAN can see it) |
 | On the verification script side | If you changed the port, pass it in like `COMFY_HOST=http://127.0.0.1:8288 python3 test_qwen21.py` |
 
-### 2-6. You can also have an AI write the node
+## 11. Development and customization
+
+### 11-1. You can also have an AI write the node
 
 **This node is something I had an AI (an agent) write.** I did not write the code. If you ask in the same
 way, you can have an AI write a node tailored to your environment. The three tips are these.
@@ -332,219 +579,7 @@ way, you can have an AI write a node tailored to your environment. The three tip
 `custom_nodes/qwen21_fast/nodes.py` in this repository is about 170 lines. When you want to change
 something, the fastest way is to hand this file to an AI and ask it to "change this part like so".
 
-### 2-7. Verifying it works
-
-```bash
-./check.sh                 # syntax checks on the files (nothing is executed)
-python3 test_qwen21.py     # actually try generating (ComfyUI must be running)
-```
-
-`test_qwen21.py` **creates its own reference image** in the first test and then reuses it for the edit
-test, so it works as-is even on a machine that has never generated a single image. On my environment the
-output looks like this.
-
-```
-t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
-t2i_16x9_2mp       success  exec=  30.7s wall=  31.0s qwen21_test_t2i_16x9_2mp_00001_.png
-t2i_1mp_count3     success  exec=  24.2s wall=  25.0s qwen21_test_t2i_1mp_count3_00001_.png, ...
-edit_match_output  success  exec=  15.9s wall=  16.1s qwen21_test_edit_match_output_00001_.png
-edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size_00001_.png
-
-5/5 ok
-```
-
-To edit an image you already have, do this.
-
-```bash
-python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"
-```
-
-### 2-8. Environment variables (the only per-machine part)
-
-| variable | default | used by |
-|---|---|---|
-| `COMFY` | `$HOME/ComfyUI` | `install.sh` (where ComfyUI is) |
-| `MODELS` | `$HOME/qwen-image-2.1-models` | `install.sh` (where the weights are downloaded) |
-| `COMFY_SERVICE` | auto-detects a `systemd --user` service containing "comfy" | `install.sh` |
-| `COMFY_DIR` | `$HOME/ComfyUI` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` / `check.sh` |
-| `COMFY_HOST` | `http://127.0.0.1:8188` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` |
-| `CHROME` | `/usr/bin/google-chrome` | `docs/capture_ui.py` / `docs/render_diagram.sh` (only when regenerating images) |
-
-Paths, host names, device IDs and credentials are not written directly into the code: the ComfyUI location,
-the ComfyUI URL, the service name and the browser path all come from the environment variables above.
-
-### 2-9. An editing demo (1 illustration, 3 scenes)
-
-Connect a reference image to `image_1` and you are in edit mode. This is the same 1 illustration with the
-character's identity, outfit and art style kept while only the surroundings change (the collage at the top
-is those 4 images).
-
-| | scene | seed |
-|---|---|---|
-| original | a plain-background character illustration (1672x941) | — |
-| 1 fire | clothes and surroundings engulfed in flames | 1030019892377945 |
-| 2 underwater | water spiralling around her like a deep-sea empress | 274968494187645 |
-| 3 rain | struck by torrential rain | 73346377262621 |
-
-<details>
-<summary>the 3 prompts in full</summary>
-
-```text
-Edit the reference image: keep the character clearly recognizable while placing her in a dramatic scene where her clothing and the space around her are engulfed in intense flames. Preserve her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall anime style. Change her expression so that she looks slightly teary and on the verge of crying, with watery eyes and a distressed, trembling expression, while still remaining cute and expressive.
-
-Add vivid fire surrounding her body, sleeves, skirt, and the air around her, with bright orange flames, glowing embers, smoke, sparks, heat distortion, and strong cinematic fire lighting. The flames should look powerful and visually striking, but do not show gore, injuries, or graphic burns. Keep the character as the clear focal point. Highly detailed, dramatic, emotional, and visually impactful.
-```
-
-```text
-Edit the reference image: transform the character into a dramatic deep-sea empress scene while preserving her core identity, recognizable face, blue gradient long hair, bright blue eyes, playful smug expression, maid outfit, whale-themed details, and overall cute anime style. Surround her with a powerful vortex of ocean water, glowing bioluminescent particles, giant splashes, swirling currents, floating bubbles, and luminous deep-sea light rays. Add a majestic underwater atmosphere with translucent water ribbons spiraling around her body, as if she is commanding the sea. Enhance the whale/ocean motif with subtle spectral whale silhouettes and elegant aquatic energy. Make the scene highly dynamic, cinematic, magical, and visually striking, with strong motion, dramatic lighting, and rich blue tones. Keep the character as the clear focal point.
-```
-
-```text
-Edit the reference image: place the character in an intense torrential rainstorm while preserving her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall cute anime style. Change her expression slightly so that she looks teary and on the verge of crying, with watery eyes, a trembling mouth, and a sad, distressed but still cute expression.
-
-Add extremely heavy pouring rain throughout the scene, with dense rain streaks, splashing water, mist, droplets, wet hair, soaked clothing, puddles, and strong storm atmosphere. Make it look like she is being struck by a violent downpour. Add visible rain in the foreground and background, dramatic water splashes, wet shine on the outfit, and cinematic storm lighting. Her hair and clothes should appear drenched and slightly affected by wind and rain, while keeping her original design clearly recognizable.
-
-Make the final result highly detailed, emotional, cinematic, and visually striking. No gore, no injury, no burial, no extra characters. Keep the character as the clear focal point.
-```
-</details>
-
-**Settings**: the reference is 1672x941 and the output is **1376x768** (same aspect ratio, 1 MP of area).
-`aspect_ratio` 1:1 / `megapixels` 1 / `steps` 0 (auto = 12 steps) / `reference_fit` `match output` /
-cfg 1.0 / euler simple. About **20 s per image** (RTX 4070 12GB, model resident; → [4. Measured numbers](#4-measured-numbers)).
-
-**Prompt tips** (what these 3 images taught me)
-
-1. **Name what must stay** - list `core identity, recognizable face, long blue gradient hair, blue eyes,
-   maid outfit, whale-themed details, and overall anime style`. This is what decides whether it still looks
-   like the same character
-2. **An expression change is something you ask for** - fire and rain say `teary, on the verge of crying`,
-   underwater says `playful smug expression`. You can steer the face deliberately while keeping the identity
-3. **Write the environment in scene words** - `intense flames` / `vortex of ocean water` / `torrential
-   rainstorm`, plus light (`cinematic lighting`) and motion (`swirling currents`)
-4. **Say what must not happen** - `no gore, no injury, no burial, no extra characters`. Worth including so a
-   viewer cannot misread the image
-5. **To hold the framing, state the preservation explicitly** - environment words also move the composition
-   (measured: a version that only said "a field of flames around him" pushed the top of the head from 2% to
-   10% down the frame and widened the crop to the waist). For an exactly fixed frame, mask (inpaint) the
-   background instead; this node has no mask input
-
-The CLI equivalent:
-
-```bash
-python3 test_qwen21_edit.py ref.png "<prompt>" 1 --seed 1030019892377945
-```
-
-## 3. Inside the node
-
-| in / out | name | meaning |
-|---|---|---|
-| input | `prompt` | the prompt |
-| input | `aspect_ratio` × `megapixels` | aspect ratio (1:1 / 4:3 / 3:4 / 3:2 / 2:3 / 16:9 / 9:16) and size (0.5 / 1 / 2 / 4 MP). **1MP = 1024x1024, 4MP = 2048x2048**. With a reference connected the output takes the reference's aspect ratio, so `aspect_ratio` is ignored; `megapixels` then fixes the **area** (a 16:9 reference at `megapixels=2` comes out 1920x1088 - not 1440 wide, but about the same area as 1440x1440) |
-| input | `steps` | 0 = automatic (**12 steps when the long side is 1024 px or less**, 20 above that. 1:1 at 1MP takes 12; 4:3 and 16:9 at 1MP have a 1184 / 1376 px long side, so they take 20) |
-| input | `seed` | the random seed. **Randomized by default**: the node enables the frontend's `control after generate` widget, so both a freshly added node and the shipped workflows come up as `randomize` and every run gives a new image. Switch it to `fixed` and note the seed to reproduce one |
-| input | `count` | how many to make at once (seed, seed+1, …). The results come back together |
-| input | `reference_fit` | how reference images are handled (`match output` = match the output size / `keep original size` = keep the reference's original size. The latter is only lighter when the reference is bigger than the output; with a 1024x1024 reference the two measure the same, 15.9 s vs 16.7 s) |
-| input | `unet_name` / `clip_name` / `vae_name` | which of the three weight files (the default is the three above) |
-| input (optional) | `image_1` … `image_4` | reference images. Connect even one and it goes into edit mode (the 4 is this node's slot count, not the model's limit) |
-| input (optional) | `model` / `clip` / `vae` | if you already have loaders in your graph, you can reuse them |
-| output | `image` | the generated image (IMAGE) |
-| output | `info` | one line with the settings and the elapsed time (real example: `t2i refs=0 1024x1024 12 steps cfg=1.0 euler/simple seeds=0..0 13.2s (13.2s each)`). In edit mode it prints the **real output size**, which follows the reference image's aspect ratio |
-
-**I deliberately do not expose cfg (how closely it follows the prompt) or the sampler.** For this model
-cfg 1.0 and euler/simple are the official settings, and anything else only makes it slower with no upside
-(→ [7. Things that will bite you](#7-things-that-will-bite-you-i-hit-every-one-of-them)). There is no
-negative prompt field either: at cfg 1.0 ComfyUI skips the unconditional pass entirely
-(`math.isclose(cond_scale, 1.0)` in `comfy/samplers.py`), so anything typed there would do nothing.
-
-## 4. Measured numbers
-
-These are the numbers from my environment (RTX 4070 12GB, the official quantized weights). They are
-compared with the same prompt and the same seed.
-
-| case | time |
-|---|---:|
-| 1024x1024, 12 steps, cfg 1.0 | **9.6 s** (13–14 s right after a ComfyUI restart) |
-| 1024x1024, 25 steps (equivalent to the official workflow) | 14.0 s |
-| 1920x1088 (16:9, 2MP), 20 steps | 30.7 s |
-| **2048x2048 (4MP), 20 steps** | **90.5 s** |
-| 1024x1024, 3 images in one go (`count=3`) | 24.2 s (about 8 s per image) |
-| edit with 1 reference image (1024x1024, 12 steps) | 17.0 s |
-| edit with 3 reference images | 36.4 s |
-
-- Per step: about 0.34 s at 1MP, about 4.3 s at 4MP
-- The fixed cost (text encoding, VAE decoding, swapping models) is about 5 s
-- The 17GB of weights do not fit entirely in 12GB of VRAM, so ComfyUI swaps in the parts it needs
-  automatically. That is why only right after a restart it takes a few extra seconds, and why `count=3`
-  is cheaper per image than running three separate times
-- The raw log I measured: `MEASUREMENTS.md`
-
-## 5. When you want better quality
-
-- **Increase the step count** (`steps` from 0 → 20–30). The time grows about proportionally with the step count (about 0.34 s per step at 1MP, plus roughly 5 s of fixed cost; 12 → 25 steps is x1.5).
-  12 steps is plenty clean already, but the more you add the more stable the fine details and text become
-- **Increase the resolution** (`megapixels` from 1 → 4). The composition is less likely to fall apart and
-  there is more detail, but the time becomes about 9 times longer (9.6 → 90.5 s at the default steps)
-- **Change the seed and pick**. Setting `count` to 3–4 lets you get several at once, which makes choosing
-  easier (and each one is a little cheaper)
-- **Raise the resolution of the reference image, or set `reference_fit` to `match output`**. The fidelity of the edit goes up
-- **Write the prompt carefully**. Splitting what you want changed from what you want kept, like "keep ~ as
-  it is" or "only the background ~", works well
-- **Do not touch cfg** (leave it at 1.0). Raising it only doubles the time, and the image becomes
-  over-contrasted
-- The official release also distributes a prompt-rewriting model (`Qwen-Image-2.1-PE-T2I`). I have not
-  verified it, but it is said to be able to expand a short prompt into a detailed one and raise the quality
-
-A rough guide to what changes what:
-
-| what you change | time | VRAM | quality |
-|---|---|---|---|
-| steps 12 → 25 | ×1.5 (9.6 → 14.0 s; the fixed cost dominates, so it does not double) | about the same | a little better |
-| resolution 1MP → 4MP | ×9.4 (9.6 → 90.5 s at the default steps; ×5.9 = 56.2 s if the step count is held at 12) | higher | better (composition is stable) |
-| +1 reference image | +9–10 s | higher | the fidelity of the edit goes up |
-| cfg 1.0 → 6.0 | ×2 | higher | worse (the image becomes too heavy) |
-
-## 6. Troubleshooting
-
-| symptom | cause | fix |
-|---|---|---|
-| An error saying `mat1 and mat2 shapes cannot be multiplied (… x4096 and 1024x2048)` | CLIPLoader is reading another workflow's encoder (the 0.6B or 4B one) | Load `qwen3vl_8b_int8_convrot.safetensors` with type `qwen_image` |
-| "Qwen 2.1 Fast Generate" does not appear in the node list | Custom nodes are only read at startup / the folder is in the wrong place | Restart ComfyUI. Check that `custom_nodes/qwen21_fast/nodes.py` exists |
-| `size mismatch for encoder.conv_in.weight` in the VAELoader | The VAE inside unsloth's FP8 repository uses the **diffusers layout** (2D convolutions, `encoder.conv_in` / `decoder.conv_out`), while ComfyUI's Qwen-Image-2.1 expects the **modelspec layout** (3D convolutions, `encoder.conv1` / `decoder.head.2`) | Use Comfy-Org's `qwen_image_2.1_vae_bf16.safetensors` (675,509,688 bytes) |
-| Roughly twice as slow as the measurements above | cfg is above 1.0 / you are using GGUF weights | Set cfg to 1.0 and use the int8_convrot weights |
-| Running the same content finished in 0.1 seconds | ComfyUI is caching the identical graph (normal behaviour) | Change the seed when you measure the time |
-| `aimdo memory compile error` | `QwenImage21Cache` (the prefix KV cache) int8/int4 does not work in this environment | Leave it at `default` (the node does not expose it) |
-| It fails or is far too slow with 3–4 reference images | Each reference consumes about 4096 tokens | Set `reference_fit` to `keep original size` / use fewer images |
-| "unknown model architecture" in a GGUF loader | GGUF re-packs of this model are missing metadata | Do not use GGUF here; use the int8_convrot safetensors |
-
-## 7. Things that will bite you (I hit every one of them)
-
-1. **Raising cfg above 1.0 doubles the computation.** The official setting is 1.0. Most of the sample code
-   out there uses something like 6.0, and this was the biggest trap of all.
-2. **The GGUF re-packs are slow in ComfyUI.** unsloth's **DiT GGUF carries no architecture information**
-   (`kv_count=0`), so ComfyUI-GGUF falls back to its guessing path and reports `Unknown model architecture!`
-   (adding a `qwen_image` signature to `tools/convert.py` makes it load). Once it loads, six runs per arm with
-   the same prompt and seed give **11.8 s (int8) vs 24.3 s (GGUF) at 1024x1024 / 12 steps - a median ratio of
-   about 2.0x**, and the sampler's own progress bar shows **0.52 vs 1.38 s/step (about 2.6x)**: ComfyUI cannot
-   use its int8 kernels and dequantizes every step, while the fixed cost both arms pay (~6 s) dilutes the ratio
-   at 12 steps. Note that the **text encoder GGUF does carry correct metadata**
-   (`general.architecture=qwen3vl`, 45 keys) - it is not the cause; the DiT is.
-   For reference, the **vendor's own app (Unsloth Desktop) was measured with the same GGUF**: on 12 GB it
-   cannot select the int8 path (it wants everything resident - 34.9 GB - and cannot offload it), so it runs
-   GGUF only, at **29.5 s** (section 3-2 of [MEASUREMENTS.md](MEASUREMENTS.md)).
-3. **There are two kinds of VAE, and they differ in layout.** Both are **4-channel (alpha-capable)**; the
-   difference is the shape of the weights. Comfy-Org's uses the **modelspec layout** (3D convolutions,
-   `encoder.conv1` / `decoder.head.2`, kernel `[1,3,3]`), the one inside unsloth's FP8 repository uses the
-   **diffusers layout** (2D convolutions, `encoder.conv_in` / `decoder.conv_out`, kernel `[3,3]`). ComfyUI
-   expects the former, so picking the latter gives you a mountain of `size mismatch` (the 3-channel Qwen VAE
-   belongs to **Qwen-Image 1.0** and is not interchangeable).
-4. **ComfyUI caches the same graph.** With the same prompt and seed it returns in 0.1 seconds and the GPU
-   does nothing.
-5. **`QwenImage21Cache` (quantizing the prefix KV cache) does not work in this environment.** Both int8 and
-   int4 die with `aimdo memory compile error`, so I did not put it in the node.
-6. **Always use the Qwen-Image-2.1 encoder.** If you use a Qwen3-VL of the wrong size, you do not get an
-   easy-to-understand error but a cross-attention shape error.
-
-## 8. Files
+## 12. Files
 
 ```
 install.sh                       download the weights, place them, install the node, restart
@@ -571,7 +606,7 @@ Both images are generated: `./docs/render_diagram.sh` redraws the diagram from t
 (`ui_empty_en.png` as it opens, `ui_workflow_en.png` once the workflow is loaded, and with `--run` it
 generates one image and also writes `ui_used_en.png`; `--lang ja` for the Japanese UI).
 
-## 9. License
+## 13. License
 
 This node and these scripts are MIT. **The weights (model files) are not included in this repository** —
 `install.sh` downloads them from the official repositories below, and the weights follow their own
@@ -581,7 +616,7 @@ respective licenses.
 change, so the original text is the only authority:
 <https://github.com/QwenLM/Qwen-Image-2.1/blob/main/LICENSE>
 
-## 10. Sources
+## 14. Sources
 
 | file | size | direct link |
 |---|---:|---|
