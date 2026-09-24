@@ -13,7 +13,11 @@ py=python3
 for f in make_qwen21_workflows.py test_qwen21.py test_qwen21_edit.py \
          docs/capture_ui.py \
          custom_nodes/qwen21_fast/nodes.py custom_nodes/qwen21_fast/__init__.py; do
-  if "$py" -m py_compile "$f" 2>/dev/null; then say "py_compile $f" OK; else say "py_compile $f" FAIL; fail=1; fi
+  if "$py" -c 'import pathlib,sys; compile(pathlib.Path(sys.argv[1]).read_bytes(), sys.argv[1], "exec")' "$f" 2>/dev/null; then
+    say "python syntax $f" OK
+  else
+    say "python syntax $f" FAIL; fail=1
+  fi
 done
 
 for j in workflows/*.json; do
@@ -21,6 +25,5 @@ for j in workflows/*.json; do
     say "json $j" OK; else say "json $j" FAIL; fail=1; fi
 done
 
-find . -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null
 [ "$fail" = 0 ] && echo "ALL CHECKS PASSED" || echo "CHECKS FAILED"
 exit "$fail"

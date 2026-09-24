@@ -8,17 +8,15 @@
 > **動作保証はありません** — 私の環境で動いた、というだけです。
 > 何かあれば X の [@\_ryu15\_](https://x.com/_ryu15_) か、このリポジトリの issue で教えてください。
 
-Qwen-Image-2.1（7.1Bの画像生成モデル＋8Bのテキストエンコーダ）は、そのままだと約33GBあり、大きなGPUが必要です。
-公式の量子化済み重みを使うと**ディスク上17GB**になり、**12GBのRTX 4070で 1024x1024が約10秒、
-2K（2048x2048）が約90秒**で生成できます。Pythonは書かず、ComfyUIに**ノードを1個**足すだけで使えるようにしました。
+既存のComfyUIに**ノードを1個**足して、テキストからの生成と元画像を使った編集を試す手順です。
+Pythonを自分で書く必要はありません。
+
+公式の量子化済み重みはディスク上で約17GB。
+私のRTX 4070 12GBでは、1024×1024を約10秒、2048×2048を約90秒で生成できました。
 
 > [!WARNING]
 > **この手順はLinux（Ubuntu 24.04で確認）前提です。** Windows / macOS はそのままでは動きません。
 > 詳しくは [前提条件](#前提条件) と [10-3. OS別の注意](#10-3-os別の注意) を参照してください。
-
-![1枚の参照画像から作った3つのシーン](docs/collage_ja.png)
-
-*同じ1枚の参照画像から、周囲のシーンだけを変えた3枚です（→ [3. 画像編集のデモ](#3-画像編集のデモ)）。*
 
 ## 前提条件
 
@@ -28,10 +26,116 @@ Qwen-Image-2.1（7.1Bの画像生成モデル＋8Bのテキストエンコーダ
 | GPU | **RTX 4070 12GB**で実測。これは最小要件を断定するものではありません |
 | ComfyUI | **0.37以降**（`TextEncodeQwenImage21` が必要） |
 | Python | `python3` が使えること |
-| Hugging Face CLI | `hf` が使えること。無ければ `pip install -U huggingface_hub` |
+| Hugging Face CLI | `hf` が使えること。無ければ[公式の導入手順](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli)を参照 |
 | ディスク | 重み約17GB＋余裕。別ファイルシステムへ配置する場合はコピーになるため、ComfyUI側にも追加容量が必要です |
 
-ComfyUIは既定では `~/ComfyUI` にある前提です。別の場所にある場合は `COMFY=/path/to/ComfyUI` を指定できます。
+ComfyUIは既定では `~/ComfyUI` にある前提です。
+別の場所にある場合は `COMFY=/path/to/ComfyUI` を指定できます。
+
+**このノードのために別のPython仮想環境を作る必要はありません。**
+ComfyUI本体がまだない場合は、[公式の導入手順](https://docs.comfy.org/installation/manual_install)に従って先に用意してください。
+`install.sh` は既存のComfyUIにモデルとノードを追加します。
+
+## 1. クイックスタート
+
+### 1-1. インストール
+
+ComfyUI 0.37以降が入っているLinux環境で実行します。
+
+```bash
+git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
+cd qwen21-fast-comfyui
+./install.sh --dry-run    # 変更せず、実行予定を表示
+./install.sh              # 重み約17GBをダウンロードして導入
+```
+
+ComfyUIが `~/ComfyUI` 以外にある場合:
+
+```bash
+COMFY=/path/to/ComfyUI ./install.sh
+```
+
+`install.sh` は重み3ファイル・カスタムノード・ワークフロー3つ・デモの元画像を配置します。
+
+最後に `RESTART REQUIRED` と出たら、ComfyUIをいつもの方法で再起動してください。
+自動で再起動された場合は、そのまま次へ進めます。
+
+### 1-2. 動作確認
+
+```bash
+./check.sh                       # 構文チェック（画像生成はしません）
+python3 test_qwen21.py t2i_1mp   # まず1枚生成する
+```
+
+ComfyUIが起動している状態で実行してください。成功すると `1/1 ok` と出ます。
+画像編集も含む5ケースを確認したい場合は、引数なしで `python3 test_qwen21.py` を実行します。
+
+<details>
+<summary>5ケースの実行例を見る</summary>
+
+引数なしのテストは、最初に生成した画像を編集テストの参照画像として使います。
+まだ画像を1枚も用意していなくても実行できます。
+
+```
+t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
+t2i_16x9_2mp       success  exec=  30.7s wall=  31.0s qwen21_test_t2i_16x9_2mp_00001_.png
+t2i_1mp_count3     success  exec=  24.2s wall=  25.0s qwen21_test_t2i_1mp_count3_00001_.png, ...
+edit_match_output  success  exec=  15.9s wall=  16.1s qwen21_test_edit_match_output_00001_.png
+edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size_00001_.png
+
+5/5 ok
+```
+
+</details>
+
+### 1-3. ComfyUIで使う
+
+まずは**結果を再現できる水中デモ**を開いてみます。
+
+1. ブラウザで <http://127.0.0.1:8188> を開きます。
+2. 画面左端の**ワークフロー**アイコンを押します。
+3. **ブラウズ**から `qwen21_fast_edit_underwater_fixed` を選びます。
+4. 画面上部の青い**実行する**ボタンを押します。完成画像は右側の**画像を保存**に表示されます。
+
+私の環境では水中デモの生成に約20秒かかります。
+PNGファイルは `~/ComfyUI/output/` に保存されます（ComfyUIを別の場所に置いた場合は、その `output/`）。
+
+下はこの操作を実際に収録した短い動画です。黄色いカーソルを追ってください（[MP4版](docs/demo/open_workflow_ja.mp4)）。
+
+![URLを開き、ワークフローを選んで実行するまでのカーソル付き動画](docs/demo/open_workflow_ja.gif)
+
+| やりたいこと | 開くワークフロー |
+|---|---|
+| テキストから作る | `qwen21_fast_t2i` — プロンプトを書いて実行 |
+| 元画像から水中の娘を毎回違う絵で作る | `qwen21_fast_edit` — seedはランダム |
+| 動画と同じ水中の娘を再現する | `qwen21_fast_edit_underwater_fixed` — seed `274968494187645` で固定 |
+
+画像編集の2つには、女の子の元画像と水中のプロンプトが最初から入っています。
+自分の画像を使うときだけ、左側の**画像を読み込む**ノードで選び直します。
+固定版を同じ設定で再実行すると、キャッシュされた結果が表示されます。
+
+<details>
+<summary>テキストから生成した画面・画像・生成中の動画を見る</summary>
+
+`qwen21_fast_t2i` を開いた画面です。
+
+![テキストから生成するワークフローを開いた画面](docs/ui_workflow_ja.png)
+
+プロンプトを入力して実行すると、右側に結果が出ます。
+
+![実行直後の画面](docs/ui_used_ja.png)
+
+実際に生成した画像です。
+
+![テキストから生成したティーポットの画像](docs/demo/text_to_image.png)
+
+生成中の画面です（約20秒）。[MP4版](docs/demo/generation.mp4)もあります。
+
+![生成中のComfyUI画面を撮ったアニメーション](docs/demo/generation.gif)
+
+</details>
+
+ポート変更やLAN内の別端末から開く方法は [10-5. ポートと接続先](#10-5-ポートと接続先) を参照してください。
 
 ## 目次
 
@@ -63,80 +167,6 @@ ComfyUIは既定では `~/ComfyUI` にある前提です。別の場所にある
 
 </details>
 
-## 1. クイックスタート
-
-### 1-1. インストール
-
-ComfyUIがすでに入っているLinux環境なら、最短手順はこれです。
-
-```bash
-git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
-cd qwen21-fast-comfyui
-./install.sh --dry-run    # 何をするか確認するだけ
-./install.sh              # 重み約17GBをダウンロードして導入
-```
-
-ComfyUIが `~/ComfyUI` 以外にある場合:
-
-```bash
-COMFY=/path/to/ComfyUI ./install.sh
-```
-
-スクリプトがComfyUIを自動再起動できなかった場合は、いつもの方法で一度再起動してください。
-
-### 1-2. 動作確認
-
-```bash
-./check.sh                 # 構文チェック（画像生成はしません）
-python3 test_qwen21.py     # 実際に生成してみる（ComfyUIが起動している必要があります）
-```
-
-`test_qwen21.py` は、最初のテストで**自分で参照画像を作って**から編集テストに使い回すので、まだ1枚も
-生成したことがない状態でもそのまま動きます。成功すると最後に `5/5 ok` と出ます。
-
-<details>
-<summary>私の環境での実行例</summary>
-
-```
-t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
-t2i_16x9_2mp       success  exec=  30.7s wall=  31.0s qwen21_test_t2i_16x9_2mp_00001_.png
-t2i_1mp_count3     success  exec=  24.2s wall=  25.0s qwen21_test_t2i_1mp_count3_00001_.png, ...
-edit_match_output  success  exec=  15.9s wall=  16.1s qwen21_test_edit_match_output_00001_.png
-edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size_00001_.png
-
-5/5 ok
-```
-
-</details>
-
-### 1-3. ComfyUIで使う
-
-ComfyUIを開き、**Workflows** から選びます。
-
-- **テキストから生成:** `qwen21_fast_t2i` を開き、プロンプトを書いて Run。
-- **画像編集（水中・毎回違う結果）:** `qwen21_fast_edit` を開いて Run。女の子の元画像と水中のプロンプトが入っています。seed は `randomize` です。
-- **画像編集（水中・結果を再現）:** `qwen21_fast_edit_underwater_fixed` を開いて Run。同じ元画像・プロンプトで、seed `274968494187645` を `fixed` にしています。
-
-自分の画像を使うときは LoadImage で選び直します。固定 seed のワークフローを同じ設定で再実行すると、キャッシュされた結果が表示されます。
-
-既定のUIは <http://127.0.0.1:8188> です。
-
-![テキストから生成するワークフローを開いた画面](docs/ui_workflow_ja.png)
-
-プロンプトを書いて Run を押すと、SaveImage ノードに結果が表示されます。
-
-![実行直後の画面](docs/ui_used_ja.png)
-
-このワークフローを実際に動かして生成した画像です。
-
-![テキストから生成したティーポットの画像](docs/demo/text_to_image.png)
-
-生成中の画面も撮りました（約20秒）。[MP4版](docs/demo/generation.mp4)もあります。
-
-![生成中のComfyUI画面を撮ったアニメーション](docs/demo/generation.gif)
-
-ポート変更やLAN内の別端末から開く方法は [10-5. ポートと接続先](#10-5-ポートと接続先) を参照してください。
-
 ## 2. AIエージェントにセットアップを任せる
 
 環境を操作できるChatGPT / Claude / ローカルエージェントなどに任せたい場合は、下の指示文をコピーして渡せます。
@@ -160,10 +190,19 @@ ComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付�
 
 ## 3. 画像編集のデモ
 
-参照画像を `image_1` に繋ぐと編集モードになります。**同じ1枚から、キャラクターの同一性・服装・画風を保ったまま
-周囲のシーンだけを変える**例です（冒頭のコラージュは元画像＋編集後の3枚）。
+![1枚の参照画像から作った3つのシーン](docs/collage_ja.png)
 
-**Workflows → `qwen21_fast_edit_underwater_fixed`** を開くと、下の元画像と水中のプロンプトが入っています。seed `274968494187645` も固定済みなので、Run を押すだけで例を再現できます。毎回違う結果を見たいときは `qwen21_fast_edit` を開きます。中央の「Qwen 2.1 Fast Generate」ノードは、`image_1` に画像が繋がっていると編集、繋がっていないとテキストから生成します。
+*同じ1枚の元画像から、周囲のシーンだけを変えた3枚です。*
+
+参照画像を `image_1` に繋ぐと編集モードになります。
+この例では、キャラクターの顔・服装・画風を保ったまま周囲を変えています。
+
+`qwen21_fast_edit_underwater_fixed` には、下の元画像と水中のプロンプトが入っています。
+seed `274968494187645` も固定済みなので、実行するだけで例を再現できます。
+毎回違う結果を見たいときは `qwen21_fast_edit` を開きます。
+
+中央の「Qwen 2.1 Fast Generate」は、`image_1` に画像が繋がっていると編集、
+繋がっていないとテキストから生成します。
 
 ![元画像を読み込み水中の編集結果を表示したComfyUIワークフロー](docs/demo/edit_workflow_ja.png)
 
@@ -265,7 +304,8 @@ python3 test_qwen21_edit.py docs/demo/source.png "$(cat docs/demo/underwater.txt
 > `install.sh` が自動でやってくれます（それが一番早いです）。ここは「何を落とすのか」を確認したい人と、
 > 手動でやりたい人向けの説明です。
 
-必要なファイルは3つ、合計約17GBです。`hf` コマンド（`pip install -U huggingface_hub` で入ります）で落とします。
+必要なファイルは3つ、合計約17GBです。`hf` コマンドで落とします。
+`hf` の導入方法は[公式ガイド](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli)を参照してください。
 
 ```bash
 hf download Comfy-Org/Qwen-Image-2.1 diffusion_models/qwen_image_2.1_int8_convrot.safetensors --local-dir ~/qwen-image-2.1-models
@@ -618,7 +658,7 @@ workflows/qwen21_fast_edit_underwater_fixed.json  元画像から水中へ編集
 make_qwen21_workflows.py         ノードの仕様からワークフローを作り直す
 test_qwen21.py                   検証（サイズ・枚数・編集）
 test_qwen21_edit.py              コマンドラインからの単発編集
-docs/collage_ja.png              冒頭のコラージュ（元画像＋3シーン）
+docs/collage_ja.png              画像編集デモのコラージュ（元画像＋3シーン）
 docs/pipeline_ja.png             §4の構成図（HTMLから生成したPNG）
 docs/ui_workflow_ja.png          ワークフローを開いた画面
 docs/ui_used_ja.png              実行して結果が出ている画面（ノードを実際に使っている状態）
@@ -627,6 +667,7 @@ docs/demo/fire.png / underwater.png / rain.png   編集結果と同名のプロ�
 docs/demo/edit_workflow_ja.png   元画像から水中の結果を出した画面
 docs/demo/text_to_image.png      テキストから実際に生成した画像
 docs/demo/generation.gif / .mp4  生成中の画面（アニメーションと動画）
+docs/demo/open_workflow_ja.gif / .mp4  ワークフロー選択から実行までの短い動画
 docs/diagram.html / .en.html     概念図の元データ（HTML。日本語版と英語版）
 docs/render_diagram.sh           概念図をPNGに書き出す（ヘッドレスChrome・2倍解像度）
 docs/diagram-spec.md             概念図の設計書（何を描くかの指定のみ。デザイン指定なし）

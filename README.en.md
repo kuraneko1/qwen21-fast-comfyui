@@ -9,18 +9,15 @@
 > worked on my machine.
 > If something comes up, tell me on X at [@\_ryu15\_](https://x.com/_ryu15_) or in an issue on this repository.
 
-Qwen-Image-2.1 (a 7.1B image generation model plus an 8B text encoder) is about 33GB as-is, so it needs a
-big GPU. Using the official quantized weights brings it down to **17GB on disk**, and it can generate
-**1024x1024 in about 10 seconds and 2K (2048x2048) in about 90 seconds on a 12GB RTX 4070**. You do not
-have to write any Python — adding **a single node** to ComfyUI is all it takes.
+This is a guide to adding **one node** to an existing ComfyUI installation to generate from text or edit an image.
+You do not have to write Python yourself.
+
+The official quantized weights take about 17GB on disk.
+On my 12GB RTX 4070, a 1024×1024 image took about 10 seconds and a 2048×2048 image about 90 seconds.
 
 > [!WARNING]
 > **These instructions assume Linux (verified on Ubuntu 24.04).** Windows / macOS need a different route.
 > See [Requirements](#requirements) and [10-3. OS notes](#10-3-os-notes).
-
-![the same reference image turned into 3 scenes](docs/collage_en.png)
-
-*The same 1 reference image with only the surroundings changed, 3 ways (→ [3. Editing demo](#3-editing-demo)).*
 
 ## Requirements
 
@@ -30,10 +27,116 @@ have to write any Python — adding **a single node** to ComfyUI is all it takes
 | GPU | Measured on an **RTX 4070 12GB**. This is not a claim that 12GB is a universal minimum |
 | ComfyUI | **0.37 or newer** (`TextEncodeQwenImage21` is required) |
 | Python | `python3` available |
-| Hugging Face CLI | `hf` available. If needed: `pip install -U huggingface_hub` |
+| Hugging Face CLI | `hf` available. If needed, see the [official installation guide](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli) |
 | Disk | About 17GB for the weights plus headroom. If the model store and ComfyUI are on different filesystems, placement falls back to copying and needs additional space on the ComfyUI side |
 
-The default assumes ComfyUI is at `~/ComfyUI`. If it lives elsewhere, pass `COMFY=/path/to/ComfyUI`.
+The default assumes ComfyUI is at `~/ComfyUI`.
+If it lives elsewhere, pass `COMFY=/path/to/ComfyUI`.
+
+**You do not need a separate Python virtual environment for this node.**
+If you do not have ComfyUI yet, follow its [official installation guide](https://docs.comfy.org/installation/manual_install) first.
+`install.sh` adds the models and node to that existing installation.
+
+## 1. Quick start
+
+### 1-1. Install
+
+Run this on Linux with ComfyUI 0.37 or newer already installed:
+
+```bash
+git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
+cd qwen21-fast-comfyui
+./install.sh --dry-run    # show planned actions without changing files
+./install.sh              # download ~17GB of weights and install
+```
+
+If ComfyUI is somewhere other than `~/ComfyUI`:
+
+```bash
+COMFY=/path/to/ComfyUI ./install.sh
+```
+
+`install.sh` places three weight files, the custom node, three workflows, and the demo source image.
+
+If it ends with `RESTART REQUIRED`, restart ComfyUI using your usual method.
+If it restarted ComfyUI automatically, continue to the next step.
+
+### 1-2. Verify
+
+```bash
+./check.sh                       # syntax checks (does not generate images)
+python3 test_qwen21.py t2i_1mp   # generate one image first
+```
+
+Run this while ComfyUI is running. Success ends with `1/1 ok`.
+To check all five cases, including editing, run `python3 test_qwen21.py` without arguments.
+
+<details>
+<summary>See the five-case output from my machine</summary>
+
+The full test reuses its first generated image as the reference for editing.
+It works even if you have never prepared an image yourself.
+
+```
+t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
+t2i_16x9_2mp       success  exec=  30.7s wall=  31.0s qwen21_test_t2i_16x9_2mp_00001_.png
+t2i_1mp_count3     success  exec=  24.2s wall=  25.0s qwen21_test_t2i_1mp_count3_00001_.png, ...
+edit_match_output  success  exec=  15.9s wall=  16.1s qwen21_test_edit_match_output_00001_.png
+edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size_00001_.png
+
+5/5 ok
+```
+
+</details>
+
+### 1-3. Use it in ComfyUI
+
+Start with the **reproducible underwater demo**:
+
+1. Open <http://127.0.0.1:8188> in your browser.
+2. Click **Workflows** in the left sidebar.
+3. Under **Browse**, choose `qwen21_fast_edit_underwater_fixed`.
+4. Click the blue **Run** button at the top. The result appears in **Save Image** on the right.
+
+The underwater demo takes about 20 seconds on my machine.
+The PNG is saved in `~/ComfyUI/output/` (or `output/` under your own ComfyUI location).
+
+This short recording shows those exact clicks. Follow the yellow cursor ([MP4 version](docs/demo/open_workflow_en.mp4)).
+
+![Cursor-guided recording of opening the URL, choosing a workflow, and running it](docs/demo/open_workflow_en.gif)
+
+| What you want to do | Workflow to open |
+|---|---|
+| Generate from text | `qwen21_fast_t2i` — write a prompt, then run |
+| Make a different underwater image each time | `qwen21_fast_edit` — random seed |
+| Reproduce the underwater image in the video | `qwen21_fast_edit_underwater_fixed` — seed `274968494187645` is fixed |
+
+Both editing workflows already include the girl as the source and the underwater prompt.
+To use your own image, select it in **Load Image** on the left.
+A second run of the fixed workflow with identical settings shows the cached result.
+
+<details>
+<summary>See the text-to-image screen, result, and generation recording</summary>
+
+Here is `qwen21_fast_t2i` when opened:
+
+![Text-to-image workflow loaded in ComfyUI](docs/ui_workflow_en.png)
+
+After you enter a prompt and run it, the result appears on the right.
+
+![Right after a run](docs/ui_used_en.png)
+
+Here is the image generated by that run:
+
+![A teapot generated from the text prompt](docs/demo/text_to_image.png)
+
+Here is the generation in progress (about 20 seconds). An [MP4 version](docs/demo/generation.mp4) is available too.
+
+![Animation of the ComfyUI screen during generation](docs/demo/generation.gif)
+
+</details>
+
+For port changes or access from another device on your LAN, see [10-5. Ports and connection](#10-5-ports-and-connection).
 
 ## Table of contents
 
@@ -65,80 +168,6 @@ The default assumes ComfyUI is at `~/ComfyUI`. If it lives elsewhere, pass `COMF
 
 </details>
 
-## 1. Quick start
-
-### 1-1. Install
-
-If ComfyUI is already installed on Linux, this is the shortest path:
-
-```bash
-git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
-cd qwen21-fast-comfyui
-./install.sh --dry-run    # show what it would do
-./install.sh              # download ~17GB of weights and install
-```
-
-If ComfyUI is somewhere other than `~/ComfyUI`:
-
-```bash
-COMFY=/path/to/ComfyUI ./install.sh
-```
-
-If the script could not restart ComfyUI automatically, restart it once using your usual method.
-
-### 1-2. Verify
-
-```bash
-./check.sh                 # syntax checks (does not generate images)
-python3 test_qwen21.py     # actually try generating (ComfyUI must be running)
-```
-
-`test_qwen21.py` **creates its own reference image** in the first test and then reuses it for the edit
-test, so it works as-is even on a machine that has never generated a single image. Success ends with `5/5 ok`.
-
-<details>
-<summary>Example output from my machine</summary>
-
-```
-t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
-t2i_16x9_2mp       success  exec=  30.7s wall=  31.0s qwen21_test_t2i_16x9_2mp_00001_.png
-t2i_1mp_count3     success  exec=  24.2s wall=  25.0s qwen21_test_t2i_1mp_count3_00001_.png, ...
-edit_match_output  success  exec=  15.9s wall=  16.1s qwen21_test_edit_match_output_00001_.png
-edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size_00001_.png
-
-5/5 ok
-```
-
-</details>
-
-### 1-3. Use it in ComfyUI
-
-Open ComfyUI and choose from **Workflows**:
-
-- **Text-to-image:** open `qwen21_fast_t2i`, write a prompt, and press Run.
-- **Image editing (underwater, new result each run):** open `qwen21_fast_edit` and press Run. It includes the girl as the source and the underwater prompt. Its seed control is `randomize`.
-- **Image editing (reproduce the underwater example):** open `qwen21_fast_edit_underwater_fixed` and press Run. It uses the same source and prompt, with seed `274968494187645` set to `fixed`.
-
-To use your own source, select it in LoadImage. A second run of the fixed-seed workflow with identical settings shows the cached result.
-
-The default UI is <http://127.0.0.1:8188>.
-
-![Text-to-image workflow loaded in ComfyUI](docs/ui_workflow_en.png)
-
-Type a prompt and press Run; the result appears in the Save Image node.
-
-![right after a run](docs/ui_used_en.png)
-
-This image came from an actual run of the text-to-image workflow.
-
-![A teapot generated from the text prompt](docs/demo/text_to_image.png)
-
-I also captured the generation in progress (about 20 seconds). An [MP4 version](docs/demo/generation.mp4) is available too.
-
-![Animation of the ComfyUI screen during generation](docs/demo/generation.gif)
-
-For port changes or access from another device on your LAN, see [10-5. Ports and connection](#10-5-ports-and-connection).
-
 ## 2. Let an AI agent do the setup
 
 If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, copy and give it the instructions below.
@@ -162,11 +191,19 @@ If there is anything you are unsure about, ask me before you run it.
 
 ## 3. Editing demo
 
-Connect a reference image to `image_1` and you are in edit mode. This is the same 1 illustration with the
-character's identity, outfit and art style kept while only the surroundings change (the collage at the top
-shows the original plus the 3 edits).
+![the same reference image turned into 3 scenes](docs/collage_en.png)
 
-Open **Workflows → `qwen21_fast_edit_underwater_fixed`** to load the source image and underwater prompt shown below. Seed `274968494187645` is fixed, so press Run to reproduce the example. For a new result each time, open `qwen21_fast_edit`. The central "Qwen 2.1 Fast Generate" node edits when `image_1` is connected; without a reference, it generates from text.
+*Three changes of scene from the same source image.*
+
+Connect a reference image to `image_1` to enter edit mode.
+In this example, the character's face, outfit, and art style remain while the surroundings change.
+
+`qwen21_fast_edit_underwater_fixed` includes the source image and underwater prompt shown below.
+Its seed is fixed at `274968494187645`, so running it reproduces the example.
+For a new result each time, open `qwen21_fast_edit`.
+
+The central "Qwen 2.1 Fast Generate" node edits when `image_1` is connected.
+Without a reference, it generates from text.
 
 ![ComfyUI editing workflow showing the source and underwater result](docs/demo/edit_workflow_en.png)
 
@@ -269,8 +306,8 @@ To try your own image, for example: `python3 test_qwen21_edit.py photo.png "make
 > [quick start](#1-quick-start) does it for you (that is the fast path).
 > This section is for checking what gets downloaded, or for installing by hand.
 
-You need three files, about 17GB in total. Download them with the `hf` command (installed by
-`pip install -U huggingface_hub`).
+You need three files, about 17GB in total. Download them with the `hf` command.
+See the [official guide](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli) if you need to install the CLI.
 
 ```bash
 hf download Comfy-Org/Qwen-Image-2.1 diffusion_models/qwen_image_2.1_int8_convrot.safetensors --local-dir ~/qwen-image-2.1-models
@@ -644,7 +681,7 @@ workflows/qwen21_fast_edit_underwater_fixed.json  source-to-underwater editing (
 make_qwen21_workflows.py         rebuild the workflows from the node's specification
 test_qwen21.py                   verification (sizes, count, edit)
 test_qwen21_edit.py              a one-off edit from the command line
-docs/collage_en.png              the collage at the top (the original + 3 scenes)
+docs/collage_en.png              the editing demo collage (original + 3 scenes)
 docs/pipeline_en.png             the diagram in section 4 (an HTML render)
 docs/ui_workflow_en.png          the ComfyUI screen with the workflow loaded
 docs/ui_used_en.png              the same screen after a run (the node actually in use)
@@ -653,6 +690,7 @@ docs/demo/fire.png / underwater.png / rain.png   edited results and matching pro
 docs/demo/edit_workflow_en.png   ComfyUI screen showing the source and underwater result
 docs/demo/text_to_image.png      image generated by the text-to-image workflow
 docs/demo/generation.gif / .mp4  animation and video of generation in progress
+docs/demo/open_workflow_en.gif / .mp4  short guide from workflow selection to Run
 docs/diagram.html / .en.html     the diagram source (HTML, Japanese and English)
 docs/render_diagram.sh           renders the diagram to PNG (headless Chrome, 2x scale)
 docs/diagram-spec.md             the content spec for the diagram (no design brief)

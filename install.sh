@@ -11,9 +11,12 @@ COMFY="${COMFY:-$HOME/ComfyUI}"                  # ComfyUI checkout
 MODELS="${MODELS:-$HOME/qwen-image-2.1-models}"  # where the weights are downloaded
 COMFY_SERVICE="${COMFY_SERVICE:-}"               # systemd --user unit to restart, if any
 DRY=0
-[ "${1:-}" = "--dry-run" ] && DRY=1
+case "${1:-}" in
+  "") ;;
+  --dry-run) DRY=1 ;;
+  *) echo "Usage: ./install.sh [--dry-run]" >&2; exit 2 ;;
+esac
 
-HF_BASE="https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main"
 DIT="diffusion_models/qwen_image_2.1_int8_convrot.safetensors"     # 7.26 GB
 TE="text_encoders/qwen3vl_8b_int8_convrot.safetensors"             # 9.35 GB
 VAE="vae/qwen_image_2.1_vae_bf16.safetensors"                      # 0.68 GB
@@ -30,16 +33,19 @@ place() {   # hardlink $1 into directory $2; copies instead across filesystems
   }
 }
 
-install_dir() {   # make $2 a fresh copy of directory $1 (safe to re-run)
+install_dir() {   # update shipped files without removing other files in $2
   src="$1"; dst="$2"
-  if [ "$DRY" = 1 ]; then echo "+ rm -rf $dst && cp -r $src $dst"; return 0; fi
-  mkdir -p "$(dirname "$dst")"
-  rm -rf "$dst"
-  cp -r "$src" "$dst"
+  run mkdir -p "$dst"
+  run cp -r "$src"/. "$dst"/
 }
 
-command -v hf >/dev/null || { echo "need the 'hf' CLI: pip install -U huggingface_hub"; exit 1; }
+command -v hf >/dev/null || { echo "Need the 'hf' CLI: https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli"; exit 1; }
 [ -d "$COMFY" ] || { echo "ComfyUI not found at $COMFY (set COMFY=...)"; exit 1; }
+if [ ! -f "$COMFY/comfy_extras/nodes_qwen.py" ] ||
+   ! grep -q 'class TextEncodeQwenImage21' "$COMFY/comfy_extras/nodes_qwen.py"; then
+  echo "ComfyUI at $COMFY is missing TextEncodeQwenImage21 (update to ComfyUI 0.37+ first)" >&2
+  exit 1
+fi
 
 echo "== 1/4 weights (~17 GB, resumable) -> $MODELS"
 for f in "$DIT" "$TE" "$VAE"; do
