@@ -14,7 +14,7 @@ It is not an unauthorized use of an illustrator's existing artwork.
 > I hope they help others trying the same thing, but **I cannot guarantee they will work elsewhere**.
 > If you spot an issue, tell me on X at [@\_ryu15\_](https://x.com/_ryu15_) or in a repository issue.
 
-This guide adds **one node** to an existing ComfyUI installation so you can generate images from text or edit a source image.
+Whether you already use ComfyUI or are installing it now, this guide adds **one node** for image generation and editing.
 You do not have to write Python yourself.
 
 The official quantized weights take about 17GB.
@@ -29,28 +29,34 @@ On my 12GB RTX 4070, a 1024×1024 image took about 10 seconds and a 2048×2048 i
 | Item | Verified / expected here |
 |---|---|
 | OS | **Linux** (verified on Ubuntu 24.04) |
-| GPU | Measured on an **RTX 4070 12GB**. This is not a claim that 12GB is a universal minimum |
-| ComfyUI | **0.37 or newer** (`TextEncodeQwenImage21` is required) |
-| Python | `python3` available |
-| Hugging Face CLI | `hf` available. If needed, see the [official installation guide](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli) |
-| Disk | About 17GB for the weights plus headroom. If the model store and ComfyUI are on different filesystems, placement falls back to copying and needs additional space on the ComfyUI side |
+| GPU | Measured on an **RTX 4070 12GB**. A fresh install needs an NVIDIA driver and `nvidia-smi`. This does not claim that 12GB is a universal minimum |
+| ComfyUI | **0.37 or newer** if you already have it (`TextEncodeQwenImage21` is required). The script fetches ComfyUI if you do not |
+| Python | `python3` **3.10 or newer**. A fresh install also needs `venv` |
+| Git | The `git` command is required |
+| Hugging Face CLI | Existing ComfyUI users need `hf` ([installation guide](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli)). A fresh install adds it to the new virtual environment automatically |
+| Disk | About 17GB for the weights plus room for ComfyUI and PyTorch. Placing the model store and ComfyUI on different filesystems needs additional space for copies |
 
-The default assumes ComfyUI is at `~/ComfyUI`.
-If it lives elsewhere, pass `COMFY=/path/to/ComfyUI`.
+On Ubuntu, if `git` or Python is missing, install them with `sudo apt install git python3 python3-venv` first.
 
-**You do not need a separate Python virtual environment for this node.**
-If you do not have ComfyUI yet, follow its [official installation guide](https://docs.comfy.org/installation/manual_install) first.
-`install.sh` adds the models and node to that existing installation.
+The default ComfyUI location is `~/ComfyUI`. If an existing installation lives elsewhere, pass `COMFY=/path/to/ComfyUI`.
+For a fresh install, the script creates `~/ComfyUI/.venv`. You do not need to rebuild the environment of an existing ComfyUI.
 
 ## 1. Quick start
 
 ### 1-1. Install
 
-Run this on Linux with ComfyUI 0.37 or newer already installed:
+First, get this repository:
 
 ```bash
 git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
 cd qwen21-fast-comfyui
+```
+
+#### A. If you already have ComfyUI
+
+Run this with ComfyUI 0.37 or newer and the `hf` command available:
+
+```bash
 ./install.sh --dry-run    # show planned actions without changing files
 ./install.sh              # download ~17GB of weights and install
 ```
@@ -61,10 +67,32 @@ If ComfyUI is somewhere other than `~/ComfyUI`:
 COMFY=/path/to/ComfyUI ./install.sh
 ```
 
-`install.sh` places three weight files, the custom node, three workflows, and the demo source image.
+In that case, use the same location when verifying: `COMFY_DIR=/path/to/ComfyUI python3 test_qwen21.py t2i_1mp`.
 
 If it ends with `RESTART REQUIRED`, restart ComfyUI using your usual method.
 If it restarted ComfyUI automatically, continue to the next step.
+
+#### B. If you do not have ComfyUI yet
+
+On Ubuntu-family Linux with an NVIDIA GPU, install ComfyUI and this project together:
+
+```bash
+./install.sh --with-comfyui --dry-run   # show planned actions without changing files
+./install.sh --with-comfyui             # install ComfyUI, its environment, weights, and node
+```
+
+If `~/ComfyUI` already exists, use A above. B will not overwrite an existing folder.
+If a download is interrupted, rerun the same command.
+
+When installation finishes, start ComfyUI in a **second terminal**:
+
+```bash
+cd ~/ComfyUI
+.venv/bin/python main.py
+```
+
+Both A and B place the three weight files, the custom node, three workflows, and the demo source image.
+Once ComfyUI starts, return to the first terminal (in this repository) for the next step.
 
 ### 1-2. Verify
 
@@ -178,19 +206,20 @@ For port changes or access from another device on your LAN, see [10-5. Ports and
 If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, copy and give it the instructions below.
 
 ```
-I want to add Qwen-Image-2.1 to ComfyUI using the steps in this repository.
+I want to set up ComfyUI and Qwen-Image-2.1 using the steps in this repository.
 https://github.com/kuraneko1/qwen21-fast-comfyui
 
 What I want you to do:
 1. git clone the repository above
-2. Check what ./install.sh --dry-run would do, and if there is no problem, run ./install.sh
+2. If ComfyUI is already installed, run ./install.sh --dry-run, then ./install.sh.
+   Otherwise, run ./install.sh --with-comfyui --dry-run, then ./install.sh --with-comfyui
    (it downloads about 17GB of weights, so it takes a while)
 3. Run ./check.sh for the syntax checks
-4. Restart ComfyUI and run python3 test_qwen21.py to test generation
+4. Start or restart ComfyUI and run python3 test_qwen21.py to test generation
    (5/5 ok means it worked)
 
-Assumptions: Linux (Ubuntu-family), ComfyUI is at ~/ComfyUI, and the hf command and python3 are available.
-If your ComfyUI path is different, run install.sh with COMFY=/path/to/ComfyUI in front of it.
+Assumptions: Ubuntu-family Linux, an NVIDIA GPU, git, and Python 3.10 or newer.
+If an existing ComfyUI is elsewhere, run install.sh with COMFY=/path/to/ComfyUI in front of it.
 If there is anything you are unsure about, ask me before you run it.
 ```
 
@@ -519,7 +548,7 @@ A rough guide to what changes what:
 
 ### 10-1. What install.sh does
 
-`install.sh` does these five things and nothing else.
+For an existing ComfyUI, `./install.sh` performs these five steps:
 
 1. Downloads the **three weight files** from the official repository into `$MODELS` (default `~/qwen-image-2.1-models`) (about 17GB, resumable)
 2. Places them into the three ComfyUI folders. On the same filesystem it uses **hardlinks**, so this needs almost no extra space. Across filesystems it falls back to copying, which needs the same additional space on the ComfyUI side
@@ -527,6 +556,11 @@ A rough guide to what changes what:
 4. Copies `workflows/*.json` into `$COMFY/user/default/workflows/` and the demo source image into `$COMFY/input/` (so editing works immediately)
 5. Restarts ComfyUI (it finds and restarts the `systemd --user` service. If it does not find one it does
    nothing, so restart it the way you usually do. **Custom nodes are only read at startup**)
+
+With `--with-comfyui`, it first clones [ComfyUI](https://github.com/Comfy-Org/ComfyUI) and installs a dedicated Python virtual environment,
+NVIDIA PyTorch, ComfyUI's dependencies, and the `hf` CLI. It then performs steps 1–4 above.
+For a fresh installation it prints a start command instead of restarting a service.
+`--dry-run` only prints planned actions; it does not create directories.
 
 To change the paths, put them in front of the command.
 
@@ -603,7 +637,8 @@ LoadImage ──IMAGE──▶ image_1
 |---|---|---|
 | `COMFY` | `$HOME/ComfyUI` | `install.sh` (where ComfyUI is) |
 | `MODELS` | `$HOME/qwen-image-2.1-models` | `install.sh` (where the weights are downloaded) |
-| `COMFY_SERVICE` | auto-detects a `systemd --user` service containing "comfy" | `install.sh` |
+| `COMFY_SERVICE` | for an existing ComfyUI, auto-detects a `systemd --user` service containing "comfy" | `install.sh` |
+| `HF_CLI` | `hf` inside the ComfyUI virtual environment or on PATH | `install.sh` (to specify the CLI) |
 | `COMFY_DIR` | `$HOME/ComfyUI` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` / `check.sh` |
 | `COMFY_HOST` | `http://127.0.0.1:8188` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` |
 | `CHROME` | `/usr/bin/google-chrome` | `docs/capture_ui.py` / `docs/render_diagram.sh` (only when regenerating images) |
@@ -672,7 +707,7 @@ something, the fastest way is to hand this file to an AI and ask it to "change t
 ## 12. Files
 
 ```
-install.sh                       download the weights, place them, install the node, restart
+install.sh                       optionally install ComfyUI, then place weights, node, and workflows
 check.sh                         syntax checks (bash / python / workflow JSON)
 MEASUREMENTS.md                  the raw measurement log
 custom_nodes/qwen21_fast/        the node itself (a combination of ComfyUI's standard nodes)

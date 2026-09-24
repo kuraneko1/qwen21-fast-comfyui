@@ -14,7 +14,7 @@
 > 同じことを試す方の参考になれば嬉しいですが、**動作保証はありません**。
 > 気づいた点は X の [@\_ryu15\_](https://x.com/_ryu15_) か、このリポジトリの issue で教えてください。
 
-既存のComfyUIに**ノードを1個**追加し、テキストからの画像生成と、元画像を使った編集を試す手順です。
+ComfyUIをすでに使っている人も、これから入れる人も、**ノードを1個**追加して画像生成と編集を試せます。
 Pythonを自分で書く必要はありません。
 
 公式の量子化済み重みは約17GBです。
@@ -29,28 +29,34 @@ Pythonを自分で書く必要はありません。
 | 項目 | このリポジトリで確認している条件 |
 |---|---|
 | OS | **Linux**（Ubuntu 24.04で確認） |
-| GPU | **RTX 4070 12GB**で実測。これは最小要件を断定するものではありません |
-| ComfyUI | **0.37以降**（`TextEncodeQwenImage21` が必要） |
-| Python | `python3` が使えること |
-| Hugging Face CLI | `hf` が使えること。無ければ[公式の導入手順](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli)を参照 |
-| ディスク | 重み約17GB＋余裕。別ファイルシステムへ配置する場合はコピーになるため、ComfyUI側にも追加容量が必要です |
+| GPU | **RTX 4070 12GB**で実測。新規導入ではNVIDIAドライバーと `nvidia-smi` が必要です。12GBを普遍的な最小要件とは断定しません |
+| ComfyUI | 既存のものを使うなら**0.37以降**（`TextEncodeQwenImage21` が必要）。未導入ならスクリプトが取得します |
+| Python | **3.10以降**の `python3`。新規導入では `venv` も必要です |
+| Git | `git` コマンドが必要です |
+| Hugging Face CLI | 既存のComfyUIを使う場合は `hf` が必要（[導入方法](https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli)）。新規導入では専用の仮想環境へ自動で入れます |
+| ディスク | 重み約17GBに加え、ComfyUI・PyTorch用の空き容量が必要です。モデルとComfyUIが別ファイルシステムなら重みのコピー分も必要です |
 
-ComfyUIは既定では `~/ComfyUI` にある前提です。
-別の場所にある場合は `COMFY=/path/to/ComfyUI` を指定できます。
+Ubuntuで `git` やPythonがない場合は、先に `sudo apt install git python3 python3-venv` で用意してください。
 
-**このノードのために別のPython仮想環境を作る必要はありません。**
-ComfyUI本体がまだない場合は、[公式の導入手順](https://docs.comfy.org/installation/manual_install)に従って先に用意してください。
-`install.sh` は既存のComfyUIにモデルとノードを追加します。
+ComfyUIの既定の場所は `~/ComfyUI` です。既存のものが別の場所にあるなら `COMFY=/path/to/ComfyUI` を指定できます。
+新規導入ではスクリプトが `~/ComfyUI/.venv` を作ります。既存のComfyUI用に仮想環境を作り直す必要はありません。
 
 ## 1. クイックスタート
 
 ### 1-1. インストール
 
-ComfyUI 0.37以降が入っているLinux環境で実行します。
+まず、このリポジトリを取得します。
 
 ```bash
 git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git
 cd qwen21-fast-comfyui
+```
+
+#### A. ComfyUIがすでにある場合
+
+ComfyUI 0.37以降と `hf` コマンドが使える環境で実行します。
+
+```bash
 ./install.sh --dry-run    # 変更せず、実行予定を表示
 ./install.sh              # 重み約17GBをダウンロードして導入
 ```
@@ -61,10 +67,32 @@ ComfyUIが `~/ComfyUI` 以外にある場合:
 COMFY=/path/to/ComfyUI ./install.sh
 ```
 
-`install.sh` は重み3ファイル・カスタムノード・ワークフロー3つ・デモの元画像を配置します。
+その場合、動作確認にも同じ場所を指定します: `COMFY_DIR=/path/to/ComfyUI python3 test_qwen21.py t2i_1mp`。
 
 最後に `RESTART REQUIRED` と出たら、ComfyUIをいつもの方法で再起動してください。
 自動で再起動された場合は、そのまま次へ進めます。
+
+#### B. ComfyUIがまだない場合
+
+Ubuntu系LinuxとNVIDIA GPUの環境で、ComfyUI本体からまとめて導入します。
+
+```bash
+./install.sh --with-comfyui --dry-run   # 変更せず、実行予定を表示
+./install.sh --with-comfyui             # ComfyUI・仮想環境・重み・ノードを導入
+```
+
+`~/ComfyUI` がすでにある場合は上のAを使ってください。Bは既存のフォルダを上書きしません。
+途中で通信が切れた場合は、同じコマンドを再実行できます。
+
+導入が終わったら、**別のターミナル**でComfyUIを起動します。
+
+```bash
+cd ~/ComfyUI
+.venv/bin/python main.py
+```
+
+A・Bのどちらでも、重み3ファイル・カスタムノード・ワークフロー3つ・デモの元画像が配置されます。
+ComfyUIが起動したら、最初のターミナル（このリポジトリのフォルダ）で次へ進みます。
 
 ### 1-2. 動作確認
 
@@ -178,19 +206,20 @@ PNGファイルは `~/ComfyUI/output/` に保存されます（ComfyUIを別の�
 環境を操作できるChatGPT / Claude / ローカルエージェントなどに任せたい場合は、下の指示文をコピーして渡せます。
 
 ```
-このリポジトリの手順で、ComfyUIに Qwen-Image-2.1 を追加したい。
+このリポジトリの手順で、ComfyUIと Qwen-Image-2.1 を使えるようにしたい。
 https://github.com/kuraneko1/qwen21-fast-comfyui
 
 やってほしいこと:
 1. 上のリポジトリを git clone する
-2. ./install.sh --dry-run で実行内容を確認し、問題なければ ./install.sh を実行する
+2. 既存のComfyUIがあれば ./install.sh --dry-run → ./install.sh、なければ
+   ./install.sh --with-comfyui --dry-run → ./install.sh --with-comfyui を実行する
    （重みを約17GBダウンロードするので時間がかかる）
 3. ./check.sh で構文チェックを実行する
-4. ComfyUIを再起動して、python3 test_qwen21.py で生成テストを実行する
+4. ComfyUIを起動または再起動して、python3 test_qwen21.py で生成テストを実行する
    （5/5 ok になれば成功）
 
-前提: Linux（Ubuntu系）、ComfyUIが ~/ComfyUI にある、hf コマンドとpython3が使える。
-ComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付けて実行する。
+前提: Ubuntu系LinuxとNVIDIA GPU、git、Python 3.10以降。
+既存のComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付ける。
 分からないことがあれば、実行前に私に聞いてください。
 ```
 
@@ -500,7 +529,7 @@ euler/simple が公式の設定で、それ以外にすると遅くなるだけ�
 
 ### 10-1. インストールスクリプトの詳細
 
-`install.sh` がやることは、この5つだけです。
+既存のComfyUIに対して `./install.sh` を実行すると、次の5つを行います。
 
 1. 公式リポジトリから**重み3ファイル**を `$MODELS`（既定 `~/qwen-image-2.1-models`）にダウンロード（約17GB・途中再開可）
 2. それをComfyUIの3つのフォルダに配置。同一ファイルシステムなら**ハードリンク**するので追加容量はほぼ不要です。別ファイルシステムではコピーにフォールバックするため、その場合はComfyUI側にも同容量が必要です
@@ -508,6 +537,11 @@ euler/simple が公式の設定で、それ以外にすると遅くなるだけ�
 4. `workflows/*.json` を `$COMFY/user/default/workflows/` に、デモの元画像を `$COMFY/input/` にコピー（開いてすぐ編集を試せるように）
 5. ComfyUIを再起動（`systemd --user` のサービスを見つけて再起動します。見つからなければ何もしないので、
    いつもの方法で再起動してください。**カスタムノードは起動時にしか読み込まれません**）
+
+`--with-comfyui` を付けた場合は、その前に[ComfyUI本体](https://github.com/Comfy-Org/ComfyUI)を取得し、
+専用のPython仮想環境、NVIDIA向けPyTorch、ComfyUIの依存パッケージ、`hf` CLIを入れます。
+その後に上の1〜4を実行します。新規導入ではサービスの自動再起動はせず、起動コマンドを表示します。
+`--dry-run` は実行予定の表示だけで、フォルダを作成しません。
 
 パスを変えたいときは、コマンドの前に付けます。
 
@@ -584,7 +618,8 @@ LoadImage ──IMAGE──▶ image_1
 |---|---|---|
 | `COMFY` | `$HOME/ComfyUI` | `install.sh`（ComfyUIの場所） |
 | `MODELS` | `$HOME/qwen-image-2.1-models` | `install.sh`（重みのダウンロード先） |
-| `COMFY_SERVICE` | "comfy" を含む `systemd --user` のサービスを自動検出 | `install.sh` |
+| `COMFY_SERVICE` | 既存ComfyUIでは "comfy" を含む `systemd --user` のサービスを自動検出 | `install.sh` |
+| `HF_CLI` | ComfyUIの仮想環境内か、PATH上の `hf` | `install.sh`（CLIを指定したい場合） |
 | `COMFY_DIR` | `$HOME/ComfyUI` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` / `check.sh` |
 | `COMFY_HOST` | `http://127.0.0.1:8188` | `test_qwen21.py` / `test_qwen21_edit.py` / `make_qwen21_workflows.py` |
 | `CHROME` | `/usr/bin/google-chrome` | `docs/capture_ui.py` / `docs/render_diagram.sh`（画像を作り直すときだけ） |
@@ -650,7 +685,7 @@ python main.py --port 8188 --listen 127.0.0.1
 ## 12. ファイル構成
 
 ```
-install.sh                       重みのダウンロード・配置・ノード設置・再起動
+install.sh                       ComfyUIの新規導入（任意）・重み・ノード・ワークフローの設置
 check.sh                         構文チェック（bash / python / ワークフローJSON）
 MEASUREMENTS.md                  実測値の生ログ
 custom_nodes/qwen21_fast/        ノード本体（ComfyUI標準ノードの組み合わせ）

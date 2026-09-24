@@ -3,6 +3,7 @@
 #
 #   ./install.sh                 install (downloads ~17 GB of weights)
 #   ./install.sh --dry-run       print what would happen, touch nothing
+#   ./install.sh --with-comfyui   also install ComfyUI into ~/ComfyUI (Linux + NVIDIA)
 #
 # Tested on Ubuntu 24.04 + RTX 4070 12 GB (sm_89) + ComfyUI 0.37.0 (torch 2.14/cu130).
 set -euo pipefail
@@ -11,11 +12,14 @@ COMFY="${COMFY:-$HOME/ComfyUI}"                  # ComfyUI checkout
 MODELS="${MODELS:-$HOME/qwen-image-2.1-models}"  # where the weights are downloaded
 COMFY_SERVICE="${COMFY_SERVICE:-}"               # systemd --user unit to restart, if any
 DRY=0
-case "${1:-}" in
-  "") ;;
-  --dry-run) DRY=1 ;;
-  *) echo "Usage: ./install.sh [--dry-run]" >&2; exit 2 ;;
-esac
+WITH_COMFYUI=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY=1 ;;
+    --with-comfyui) WITH_COMFYUI=1 ;;
+    *) echo "Usage: ./install.sh [--dry-run] [--with-comfyui]" >&2; exit 2 ;;
+  esac
+done
 
 DIT="diffusion_models/qwen_image_2.1_int8_convrot.safetensors"     # 7.26 GB
 TE="text_encoders/qwen3vl_8b_int8_convrot.safetensors"             # 9.35 GB
@@ -39,17 +43,65 @@ install_dir() {   # update shipped files without removing other files in $2
   run cp -r "$src"/. "$dst"/
 }
 
-command -v hf >/dev/null || { echo "Need the 'hf' CLI: https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli"; exit 1; }
-[ -d "$COMFY" ] || { echo "ComfyUI not found at $COMFY (set COMFY=...)"; exit 1; }
-if [ ! -f "$COMFY/comfy_extras/nodes_qwen.py" ] ||
-   ! grep -q 'class TextEncodeQwenImage21' "$COMFY/comfy_extras/nodes_qwen.py"; then
-  echo "ComfyUI at $COMFY is missing TextEncodeQwenImage21 (update to ComfyUI 0.37+ first)" >&2
-  exit 1
+if [ "$WITH_COMFYUI" = 1 ]; then
+  [ "$(uname -s)" = Linux ] || { echo "--with-comfyui currently supports Linux only" >&2; exit 1; }
+  for tool in git python3 nvidia-smi; do
+    command -v "$tool" >/dev/null || { echo "Need $tool before installing ComfyUI" >&2; exit 1; }
+  done
+  nvidia-smi -L >/dev/null || { echo "NVIDIA GPU/driver not available to nvidia-smi" >&2; exit 1; }
+  python3 -c 'import sys, venv, ensurepip; assert sys.version_info >= (3, 10)' || {
+    echo "Need Python 3.10+ with venv support (on Ubuntu: install python3-venv)" >&2; exit 1;
+  }
+  marker="$COMFY/.qwen21-fast-bootstrap"
+  if [ -e "$COMFY" ] && [ ! -f "$marker" ]; then
+    echo "Found $COMFY but it was not created by --with-comfyui. Use ./install.sh for an existing ComfyUI." >&2
+    exit 1
+  fi
+  echo "== set up ComfyUI (Linux + NVIDIA) -> $COMFY"
+  if [ ! -d "$COMFY" ]; then
+    run mkdir -p "$(dirname "$COMFY")"
+    run git clone --depth 1 https://github.com/Comfy-Org/ComfyUI.git "$COMFY"
+    if [ "$DRY" != 1 ]; then touch "$marker"; fi
+  fi
+  venv_python="$COMFY/.venv/bin/python"
+  if [ ! -x "$venv_python" ]; then run python3 -m venv "$COMFY/.venv"; fi
+  run "$venv_python" -m pip install --upgrade pip
+  run "$venv_python" -m pip install torch torchvision torchaudio \
+    --extra-index-url https://download.pytorch.org/whl/cu130
+  run "$venv_python" -m pip install -r "$COMFY/requirements.txt"
+  run "$venv_python" -m pip install --upgrade huggingface_hub
+  if [ "$DRY" != 1 ] && ! "$venv_python" -c \
+       'import torch; assert torch.version.cuda and torch.cuda.is_available()'; then
+    echo "CUDA is unavailable in the new virtual environment. Check the NVIDIA driver and PyTorch installation." >&2
+    exit 1
+  fi
+fi
+
+if [ -n "${HF_CLI:-}" ]; then
+  hf_cli="$HF_CLI"
+elif [ "$WITH_COMFYUI" = 1 ]; then
+  hf_cli="$COMFY/.venv/bin/hf"
+elif [ -x "$COMFY/.venv/bin/hf" ]; then
+  hf_cli="$COMFY/.venv/bin/hf"
+else
+  hf_cli="$(command -v hf || true)"
+fi
+if [ "$DRY" != 1 ] || [ "$WITH_COMFYUI" != 1 ]; then
+  [ -n "$hf_cli" ] && [ -x "$hf_cli" ] || {
+    echo "Need the 'hf' CLI: https://huggingface.co/docs/huggingface_hub/installation#install-the-hugging-face-cli" >&2
+    exit 1
+  }
+  [ -d "$COMFY" ] || { echo "ComfyUI not found at $COMFY (set COMFY=..., or add --with-comfyui)" >&2; exit 1; }
+  if [ ! -f "$COMFY/comfy_extras/nodes_qwen.py" ] ||
+     ! grep -q 'class TextEncodeQwenImage21' "$COMFY/comfy_extras/nodes_qwen.py"; then
+    echo "ComfyUI at $COMFY is missing TextEncodeQwenImage21 (update to ComfyUI 0.37+ first)" >&2
+    exit 1
+  fi
 fi
 
 echo "== 1/4 weights (~17 GB, resumable) -> $MODELS"
 for f in "$DIT" "$TE" "$VAE"; do
-  run hf download Comfy-Org/Qwen-Image-2.1 "$f" --local-dir "$MODELS"
+  run "$hf_cli" download Comfy-Org/Qwen-Image-2.1 "$f" --local-dir "$MODELS"
   if [ "$DRY" != 1 ] && [ ! -f "$MODELS/$f" ]; then
     echo "download did not produce $MODELS/$f - stopping" >&2
     exit 1
@@ -68,29 +120,34 @@ install_dir "$here/custom_nodes/qwen21_fast" "$COMFY/custom_nodes/qwen21_fast"
 run cp -f "$here"/workflows/*.json "$COMFY/user/default/workflows/"
 run cp -f "$here/docs/demo/source.png" "$COMFY/input/qwen21_demo_source.png"
 
-echo "== 4/4 restart ComfyUI (systemd user unit; adjust if you run it another way)"
+echo "== 4/4 start or restart ComfyUI"
 # `|| true` keeps a no-match case non-fatal, and nothing here pipes into a consumer that stops
 # reading early (grep -q would kill the producer with SIGPIPE and fail the script with 141 under
 # `set -o pipefail`). Set COMFY_SERVICE if the unit name is not auto-detectable.
-if [ -z "$COMFY_SERVICE" ]; then
-  # Service units only (a .timer/.socket whose name contains "comfy" is not ComfyUI), and a
-  # running one first so we restart what is actually serving instead of a stopped file.
-  COMFY_SERVICE="$(systemctl --user list-units --type=service --no-legend --plain 2>/dev/null \
-                   | awk 'tolower($1) ~ /comfy/ {print $1; exit}' || true)"
-  if [ -z "$COMFY_SERVICE" ]; then
-    COMFY_SERVICE="$(systemctl --user list-unit-files --type=service --no-legend --plain 2>/dev/null \
-                     | awk 'tolower($1) ~ /comfy/ {print $1; exit}' || true)"
-  fi
-fi
-if [ -n "$COMFY_SERVICE" ]; then
-  echo "  detected service: $COMFY_SERVICE"
-  run systemctl --user restart "$COMFY_SERVICE"
+if [ "$WITH_COMFYUI" = 1 ]; then
+  echo "  New ComfyUI installation: start it in a terminal with:"
+  printf '  cd %q && %q main.py\n' "$COMFY" "$COMFY/.venv/bin/python"
 else
-  echo
-  echo "  *** RESTART REQUIRED ***"
-  echo "  No ComfyUI systemd --user service matched 'comfy', so nothing was restarted."
-  echo "  Custom nodes and workflows are only read at startup - start or restart ComfyUI"
-  echo "  yourself (or pass COMFY_SERVICE=<unit> on the next run), then reload its page."
+  if [ -z "$COMFY_SERVICE" ]; then
+    # Service units only (a .timer/.socket whose name contains "comfy" is not ComfyUI), and a
+    # running one first so we restart what is actually serving instead of a stopped file.
+    COMFY_SERVICE="$(systemctl --user list-units --type=service --no-legend --plain 2>/dev/null \
+                     | awk 'tolower($1) ~ /comfy/ {print $1; exit}' || true)"
+    if [ -z "$COMFY_SERVICE" ]; then
+      COMFY_SERVICE="$(systemctl --user list-unit-files --type=service --no-legend --plain 2>/dev/null \
+                       | awk 'tolower($1) ~ /comfy/ {print $1; exit}' || true)"
+    fi
+  fi
+  if [ -n "$COMFY_SERVICE" ]; then
+    echo "  detected service: $COMFY_SERVICE"
+    run systemctl --user restart "$COMFY_SERVICE"
+  else
+    echo
+    echo "  *** RESTART REQUIRED ***"
+    echo "  No ComfyUI systemd --user service matched 'comfy', so nothing was restarted."
+    echo "  Custom nodes and workflows are only read at startup - start or restart ComfyUI"
+    echo "  yourself (or pass COMFY_SERVICE=<unit> on the next run), then reload its page."
+  fi
 fi
 
 cat <<'EOF'
