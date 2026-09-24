@@ -420,7 +420,7 @@ workflows/qwen21_fast_t2i.json   the workflow that generates from a prompt
 workflows/qwen21_fast_edit.json  source-to-underwater editing (random seed)
 workflows/qwen21_fast_edit_underwater_fixed.json  source-to-underwater editing (fixed seed)
 make_qwen21_workflows.py         rebuild the workflows from the node's specification
-test_qwen21.py                   verification (sizes, count, edit)
+test_qwen21.py                   generation test over 5 cases (pass/fail and timing; a skip counts as a failure)
 test_qwen21_edit.py              a one-off edit from the command line
 docs/collage_en.png              the opening collage (original + 3 scenes)
 docs/pipeline_en.png             the diagram in section 4 (an HTML render)

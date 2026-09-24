@@ -8,7 +8,8 @@
 
 Covers the node's surface: aspect ratio x megapixels, the automatic step counts, a
 multi-image batch, and editing with and without reference resizing. Exits non-zero if any
-case fails, so it also works as a post-install check.
+case fails OR is skipped (a skipped case generated nothing), so it also works as a post-install
+check. Run it without arguments so the first case produces the reference the edit cases reuse.
 """
 import json
 import os
@@ -101,16 +102,27 @@ def run_case(name, case, ref_file=None):
 
 def main():
     wanted = sys.argv[1:] or list(CASES)
+    unknown = [n for n in wanted if n not in CASES]
+    if unknown:
+        sys.exit("unknown case %s - choose from %s" % (", ".join(unknown), ", ".join(CASES)))
     results, ref = [], None
     for name in wanted:
         result = run_case(name, CASES[name], ref_file=ref)
         results.append(result)
         if name == "t2i_1mp" and result.get("images"):
             ref = str(result["images"][0])  # the edit cases reuse this render
+    # Only "ok" counts as ok: a skipped case produced no image, so reporting it as a pass would
+    # tell an agent (or a CI job) that everything worked when nothing was generated.
+    ok = [r["name"] for r in results if r["status"] == "ok"]
     failed = [r["name"] for r in results if r["status"] not in ("ok", "skipped")]
-    print("\n%d/%d ok%s" % (len(results) - len(failed), len(results),
-                            ("  FAILED: " + ", ".join(failed)) if failed else ""))
-    return 1 if failed else 0
+    skipped = [r["name"] for r in results if r["status"] == "skipped"]
+    print("\n%d/%d ok%s%s" % (len(ok), len(results),
+                              ("  FAILED: " + ", ".join(failed)) if failed else "",
+                              ("  SKIPPED: " + ", ".join(skipped)) if skipped else ""))
+    if skipped:
+        print("skipped cases generated nothing - run it without arguments so the first case "
+              "makes the reference image they reuse")
+    return 1 if failed or skipped else 0
 
 
 if __name__ == "__main__":

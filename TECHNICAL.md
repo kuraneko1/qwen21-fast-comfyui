@@ -400,7 +400,7 @@ workflows/qwen21_fast_t2i.json   プロンプトから生成するワークフ�
 workflows/qwen21_fast_edit.json  元画像から水中へ編集（seedはランダム）
 workflows/qwen21_fast_edit_underwater_fixed.json  元画像から水中へ編集（seed固定）
 make_qwen21_workflows.py         ノードの仕様からワークフローを作り直す
-test_qwen21.py                   検証（サイズ・枚数・編集）
+test_qwen21.py                   5ケースの生成テスト（成否と所要時間。スキップも失敗扱い）
 test_qwen21_edit.py              コマンドラインからの単発編集
 docs/collage_ja.png              冒頭のコラージュ（元画像＋3シーン）
 docs/pipeline_ja.png             §4の構成図（HTMLから生成したPNG）
