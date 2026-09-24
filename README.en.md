@@ -37,6 +37,9 @@ The default assumes ComfyUI is at `~/ComfyUI`. If it lives elsewhere, pass `COMF
 
 ## Table of contents
 
+<details>
+<summary>Show chapters</summary>
+
 - [Requirements](#requirements)
 - [1. Quick start](#1-quick-start)
   - [1-1. Install](#1-1-install)
@@ -59,6 +62,8 @@ The default assumes ComfyUI is at `~/ComfyUI`. If it lives elsewhere, pass `COMF
 - [12. Files](#12-files)
 - [13. License](#13-license)
 - [14. Sources](#14-sources)
+
+</details>
 
 ## 1. Quick start
 
@@ -84,13 +89,15 @@ If the script could not restart ComfyUI automatically, restart it once using you
 ### 1-2. Verify
 
 ```bash
-./check.sh                 # syntax checks on the files (nothing is executed)
+./check.sh                 # syntax checks (does not generate images)
 python3 test_qwen21.py     # actually try generating (ComfyUI must be running)
 ```
 
 `test_qwen21.py` **creates its own reference image** in the first test and then reuses it for the edit
-test, so it works as-is even on a machine that has never generated a single image. On my environment the
-output looks like this.
+test, so it works as-is even on a machine that has never generated a single image. Success ends with `5/5 ok`.
+
+<details>
+<summary>Example output from my machine</summary>
 
 ```
 t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
@@ -102,19 +109,15 @@ edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size
 5/5 ok
 ```
 
-To edit an image you already have, do this.
-
-```bash
-python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"
-```
+</details>
 
 ### 1-3. Use it in ComfyUI
 
-Open ComfyUI and choose **Workflows → `qwen21_fast_t2i`** for text-to-image. For reference-image editing, use **`qwen21_fast_edit`**.
+Open ComfyUI and choose **Workflows → `qwen21_fast_t2i`** for text-to-image. To edit a reference image, open **`qwen21_fast_edit`** and select your image in the LoadImage node (the default `example.png` is not included).
 
 The default UI is <http://127.0.0.1:8188>.
 
-![ComfyUI as it opens](docs/ui_workflow_en.png)
+![Text-to-image workflow loaded in ComfyUI](docs/ui_workflow_en.png)
 
 Type a prompt and press Run; the result appears in the Save Image node.
 
@@ -124,10 +127,7 @@ For port changes or access from another device on your LAN, see [10-5. Ports and
 
 ## 2. Let an AI agent do the setup
 
-If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, you can hand it the following instructions directly.
-
-Copy the box below and paste it into your AI. If it is an agent running in your environment (Ubuntu and so
-on), it will just do it for you.
+If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, copy and give it the instructions below.
 
 ```
 I want to add Qwen-Image-2.1 to ComfyUI using the steps in this repository.
@@ -150,7 +150,7 @@ If there is anything you are unsure about, ask me before you run it.
 
 Connect a reference image to `image_1` and you are in edit mode. This is the same 1 illustration with the
 character's identity, outfit and art style kept while only the surroundings change (the collage at the top
-is those 4 images).
+shows the original plus the 3 edits).
 
 | | scene | seed |
 |---|---|---|
@@ -197,7 +197,7 @@ cfg 1.0 / euler simple. About **20 s per image** (RTX 4070 12GB, model resident;
 4. **Say what must not happen** - `no gore, no injury, no burial, no extra characters`. Worth including so a
    viewer cannot misread the image
 5. **To hold the framing, state the preservation explicitly** - environment words also move the composition
-   (measured: a version that only said "a field of flames around him" pushed the top of the head from 2% to
+   (measured: a version that only said "flames rising in a meadow" pushed the top of the head from 2% to
    10% down the frame and widened the crop to the waist). For an exactly fixed frame, mask (inpaint) the
    background instead; this node has no mask input
 
@@ -206,6 +206,8 @@ The CLI equivalent:
 ```bash
 python3 test_qwen21_edit.py ref.png "<prompt>" 1 --seed 1030019892377945
 ```
+
+To try your own image, for example: `python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"`.
 
 ## 4. What is running
 
@@ -217,7 +219,7 @@ python3 test_qwen21_edit.py ref.png "<prompt>" 1 --seed 1030019892377945
 
 > [!TIP]
 > **You do not have to do this download by hand.** The `install.sh` in the
-> [quick start](#1-quick-start) below does it for you (that is the fast path).
+> [quick start](#1-quick-start) does it for you (that is the fast path).
 > This section is for checking what gets downloaded, or for installing by hand.
 
 You need three files, about 17GB in total. Download them with the `hf` command (installed by
@@ -282,7 +284,7 @@ quantized for ComfyUI**.
 | text encoder | **Qwen3-VL-8B-Instruct** | **int8 convrot** |
 | VAE | **Qwen-Image-2.1 VAE** | no quantization (**bf16**) |
 
-- The original upstream distribution (bf16, no quantization) is about 33GB and does not fit in 12GB of VRAM. Using the quantized version is what makes it fit in VRAM.
+- The original upstream distribution (bf16, no quantization) is about 33GB and does not fit in 12GB of VRAM. I use the quantized version with ComfyUI swapping in the parts it needs to run on my 12GB setup.
 - Where the original and the ComfyUI format live: <https://huggingface.co/Qwen/Qwen-Image-2.1> /
   <https://huggingface.co/Comfy-Org/Qwen-Image-2.1>
 - **Check the license yourself before you use this.** When I looked it was the research / non-commercial
@@ -533,9 +535,9 @@ ComfyUI UI      http://127.0.0.1:8188     ← open this in a browser
                 └── the API the scripts use: http://127.0.0.1:8188/prompt, /history, /object_info
 ```
 
-This is what it looks like when you open it.
+This is what the text-to-image workflow looks like when you open it.
 
-![ComfyUI as it opens](docs/ui_workflow_en.png)
+![Text-to-image workflow loaded in ComfyUI](docs/ui_workflow_en.png)
 
 *Just this node and a Save Image node, wired together.*
 
@@ -592,8 +594,8 @@ make_qwen21_workflows.py         rebuild the workflows from the node's specifica
 test_qwen21.py                   verification (sizes, count, edit)
 test_qwen21_edit.py              a one-off edit from the command line
 docs/collage_en.png              the collage at the top (the original + 3 scenes)
-docs/pipeline_en.png             the diagram in section 1 (an HTML render)
-docs/ui_workflow_en.png          the ComfyUI screen as it opens
+docs/pipeline_en.png             the diagram in section 4 (an HTML render)
+docs/ui_workflow_en.png          the ComfyUI screen with the workflow loaded
 docs/ui_used_en.png              the same screen after a run (the node actually in use)
 docs/diagram.html / .en.html     the diagram source (HTML, Japanese and English)
 docs/render_diagram.sh           renders the diagram to PNG (headless Chrome, 2x scale)
@@ -601,7 +603,7 @@ docs/diagram-spec.md             the content spec for the diagram (no design bri
 docs/capture_ui.py               the script that takes the screenshot
 ```
 
-Both images are generated: `./docs/render_diagram.sh` redraws the diagram from the HTML, and
+The diagrams and screenshots can be regenerated: `./docs/render_diagram.sh` redraws the diagram from the HTML, and
 `python3 docs/capture_ui.py docs --lang en --run` screenshots a running ComfyUI with the workflow loaded
 (`ui_empty_en.png` as it opens, `ui_workflow_en.png` once the workflow is loaded, and with `--run` it
 generates one image and also writes `ui_used_en.png`; `--lang ja` for the Japanese UI).

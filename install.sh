@@ -50,7 +50,7 @@ for f in "$DIT" "$TE" "$VAE"; do
   fi
 done
 
-echo "== 2/4 place them where ComfyUI looks (hardlinks, no extra disk)"
+echo "== 2/4 place them where ComfyUI looks (hardlinks, or copies across filesystems)"
 place "$MODELS/$DIT" "$COMFY/models/diffusion_models"
 place "$MODELS/$TE"  "$COMFY/models/text_encoders"
 place "$MODELS/$VAE" "$COMFY/models/vae"

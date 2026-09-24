@@ -35,6 +35,9 @@ ComfyUIは既定では `~/ComfyUI` にある前提です。別の場所にある
 
 ## 目次
 
+<details>
+<summary>章一覧を開く</summary>
+
 - [前提条件](#前提条件)
 - [1. クイックスタート](#1-クイックスタート)
   - [1-1. インストール](#1-1-インストール)
@@ -57,6 +60,8 @@ ComfyUIは既定では `~/ComfyUI` にある前提です。別の場所にある
 - [12. ファイル構成](#12-ファイル構成)
 - [13. ライセンス](#13-ライセンス)
 - [14. 出典](#14-出典)
+
+</details>
 
 ## 1. クイックスタート
 
@@ -82,12 +87,15 @@ COMFY=/path/to/ComfyUI ./install.sh
 ### 1-2. 動作確認
 
 ```bash
-./check.sh                 # ファイルの構文チェック（実行はしません）
+./check.sh                 # 構文チェック（画像生成はしません）
 python3 test_qwen21.py     # 実際に生成してみる（ComfyUIが起動している必要があります）
 ```
 
 `test_qwen21.py` は、最初のテストで**自分で参照画像を作って**から編集テストに使い回すので、まだ1枚も
-生成したことがない状態でもそのまま動きます。私の環境ではこう出ます。
+生成したことがない状態でもそのまま動きます。成功すると最後に `5/5 ok` と出ます。
+
+<details>
+<summary>私の環境での実行例</summary>
 
 ```
 t2i_1mp            success  exec=  13.6s wall=  14.0s qwen21_test_t2i_1mp_00001_.png
@@ -99,19 +107,15 @@ edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size
 5/5 ok
 ```
 
-手持ちの画像を編集したいときは、こうです。
-
-```bash
-python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"
-```
+</details>
 
 ### 1-3. ComfyUIで使う
 
-ComfyUIを開き、**Workflows → `qwen21_fast_t2i`** を選べばテキストから生成できます。参照画像を編集したい場合は **`qwen21_fast_edit`** を使います。
+ComfyUIを開き、**Workflows → `qwen21_fast_t2i`** を選べばテキストから生成できます。参照画像を編集する場合は **`qwen21_fast_edit`** を開き、LoadImageノードで手持ちの画像を選んでください（初期値の `example.png` は同梱されていません）。
 
 既定のUIは <http://127.0.0.1:8188> です。
 
-![ComfyUIを開いた直後](docs/ui_workflow_ja.png)
+![テキストから生成するワークフローを開いた画面](docs/ui_workflow_ja.png)
 
 プロンプトを書いて Run を押すと、SaveImage ノードに結果が表示されます。
 
@@ -121,9 +125,7 @@ ComfyUIを開き、**Workflows → `qwen21_fast_t2i`** を選べばテキスト�
 
 ## 2. AIエージェントにセットアップを任せる
 
-環境を操作できるChatGPT / Claude / ローカルエージェントなどに任せたい場合は、下の指示文をそのまま渡せます。
-
-下の箱をコピーして、AIに貼ってください。実行環境（Ubuntuなど）で動くエージェントなら、そのままやってくれます。
+環境を操作できるChatGPT / Claude / ローカルエージェントなどに任せたい場合は、下の指示文をコピーして渡せます。
 
 ```
 このリポジトリの手順で、ComfyUIに Qwen-Image-2.1 を追加したい。
@@ -145,7 +147,7 @@ ComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付�
 ## 3. 画像編集のデモ
 
 参照画像を `image_1` に繋ぐと編集モードになります。**同じ1枚から、キャラクターの同一性・服装・画風を保ったまま
-周囲のシーンだけを変える**例です（冒頭のコラージュがその4枚）。
+周囲のシーンだけを変える**例です（冒頭のコラージュは元画像＋編集後の3枚）。
 
 | | シーン | seed |
 |---|---|---|
@@ -201,6 +203,8 @@ CLI から同じ編集をする場合:
 python3 test_qwen21_edit.py ref.png "<プロンプト>" 1 --seed 1030019892377945
 ```
 
+手持ちの画像で試すなら、例えば `python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"` です。
+
 ## 4. 何が動いているのか
 
 ![構成図](docs/pipeline_ja.png)
@@ -210,7 +214,7 @@ python3 test_qwen21_edit.py ref.png "<プロンプト>" 1 --seed 103001989237794
 ### 4-1. 重み（モデルファイル）の中身とダウンロード先
 
 > [!TIP]
-> **このダウンロードを自分でやる必要はありません。** 後述の[クイックスタート](#1-クイックスタート)の
+> **このダウンロードを自分でやる必要はありません。** [クイックスタート](#1-クイックスタート)の
 > `install.sh` が自動でやってくれます（それが一番早いです）。ここは「何を落とすのか」を確認したい人と、
 > 手動でやりたい人向けの説明です。
 
@@ -271,7 +275,7 @@ ComfyUIが更新されてもそのまま動きます。
 | テキストエンコーダ | **Qwen3-VL-8B-Instruct** | **int8 convrot** |
 | VAE | **Qwen-Image-2.1 VAE** | 量子化なし（**bf16**） |
 
-- 元の本家配布（bf16・量子化なし）は約33GBで、12GBのVRAMには載りません。量子化版を使うことでVRAMに収まるようにしています。
+- 元の本家配布（bf16・量子化なし）は約33GBで、12GBのVRAMには載りません。量子化版を使い、必要な部分をComfyUIに入れ替えさせて12GB環境で動かしています。
 - 本家とComfyUI形式の置き場: <https://huggingface.co/Qwen/Qwen-Image-2.1> ／
   <https://huggingface.co/Comfy-Org/Qwen-Image-2.1>
 - **ライセンスは必ず自分で確認してください。** 私が見たときは研究・非商用向けの「Qwen Research License」でしたが、
@@ -508,9 +512,9 @@ ComfyUI UI      http://127.0.0.1:8188     ← ブラウザで開く
                 └── スクリプトが使うAPI: http://127.0.0.1:8188/prompt, /history, /object_info
 ```
 
-開くとこうなります。
+テキストから生成するワークフローを開くと、こうなります。
 
-![ComfyUIを開いた直後](docs/ui_workflow_ja.png)
+![テキストから生成するワークフローを開いた画面](docs/ui_workflow_ja.png)
 
 *このノードと「画像を保存」をつないだだけの図です。*
 
@@ -565,8 +569,8 @@ make_qwen21_workflows.py         ノードの仕様からワークフローを�
 test_qwen21.py                   検証（サイズ・枚数・編集）
 test_qwen21_edit.py              コマンドラインからの単発編集
 docs/collage_ja.png              冒頭のコラージュ（元画像＋3シーン）
-docs/pipeline_ja.png             §1の構成図（HTMLから生成したPNG）
-docs/ui_workflow_ja.png          ComfyUIを開いた直後の画面
+docs/pipeline_ja.png             §4の構成図（HTMLから生成したPNG）
+docs/ui_workflow_ja.png          ワークフローを開いた画面
 docs/ui_used_ja.png              実行して結果が出ている画面（ノードを実際に使っている状態）
 docs/diagram.html / .en.html     概念図の元データ（HTML。日本語版と英語版）
 docs/render_diagram.sh           概念図をPNGに書き出す（ヘッドレスChrome・2倍解像度）
