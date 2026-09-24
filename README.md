@@ -2,6 +2,10 @@
 
 # 12GBのGPUで Qwen-Image-2.1 を ComfyUI で動かす（初心者の備忘録）
 
+![1枚の参照画像から作った3つのシーン](docs/collage_ja.png)
+
+*同じ1枚の元画像から、周囲のシーンだけを変えた3枚です。*
+
 > [!NOTE]
 > **このリポジトリは特別なことを何もしていません。** 私（初心者）が自分のPCで組んだ環境を、忘れないように
 > そのまま保存しておくための備忘録です。同じことをしてみたい人の参考になれば嬉しいですが、
@@ -189,10 +193,6 @@ ComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付�
 ```
 
 ## 3. 画像編集のデモ
-
-![1枚の参照画像から作った3つのシーン](docs/collage_ja.png)
-
-*同じ1枚の元画像から、周囲のシーンだけを変えた3枚です。*
 
 参照画像を `image_1` に繋ぐと編集モードになります。
 この例では、キャラクターの顔・服装・画風を保ったまま周囲を変えています。
@@ -658,7 +658,7 @@ workflows/qwen21_fast_edit_underwater_fixed.json  元画像から水中へ編集
 make_qwen21_workflows.py         ノードの仕様からワークフローを作り直す
 test_qwen21.py                   検証（サイズ・枚数・編集）
 test_qwen21_edit.py              コマンドラインからの単発編集
-docs/collage_ja.png              画像編集デモのコラージュ（元画像＋3シーン）
+docs/collage_ja.png              冒頭のコラージュ（元画像＋3シーン）
 docs/pipeline_ja.png             §4の構成図（HTMLから生成したPNG）
 docs/ui_workflow_ja.png          ワークフローを開いた画面
 docs/ui_used_ja.png              実行して結果が出ている画面（ノードを実際に使っている状態）

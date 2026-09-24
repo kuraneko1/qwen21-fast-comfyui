@@ -2,6 +2,10 @@
 
 # Running Qwen-Image-2.1 on a 12GB GPU with ComfyUI (a beginner's notes)
 
+![the same reference image turned into 3 scenes](docs/collage_en.png)
+
+*Three changes of scene from the same source image.*
+
 > [!NOTE]
 > **This repository does nothing special.** It is a set of notes where I (a beginner) wrote down the
 > environment I put together on my own PC, exactly as it was, so I would not forget it. I would be happy
@@ -190,10 +194,6 @@ If there is anything you are unsure about, ask me before you run it.
 ```
 
 ## 3. Editing demo
-
-![the same reference image turned into 3 scenes](docs/collage_en.png)
-
-*Three changes of scene from the same source image.*
 
 Connect a reference image to `image_1` to enter edit mode.
 In this example, the character's face, outfit, and art style remain while the surroundings change.
@@ -681,7 +681,7 @@ workflows/qwen21_fast_edit_underwater_fixed.json  source-to-underwater editing (
 make_qwen21_workflows.py         rebuild the workflows from the node's specification
 test_qwen21.py                   verification (sizes, count, edit)
 test_qwen21_edit.py              a one-off edit from the command line
-docs/collage_en.png              the editing demo collage (original + 3 scenes)
+docs/collage_en.png              the opening collage (original + 3 scenes)
 docs/pipeline_en.png             the diagram in section 4 (an HTML render)
 docs/ui_workflow_en.png          the ComfyUI screen with the workflow loaded
 docs/ui_used_en.png              the same screen after a run (the node actually in use)
