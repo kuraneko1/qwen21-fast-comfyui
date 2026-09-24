@@ -4,19 +4,20 @@
 
 ![the same reference image turned into 3 scenes](docs/collage_en.png)
 
-*Three changes of scene from the same source image.*
+*Three scenes made by editing the same source image.*
+
+**About the source image:** It was generated separately with AI, based on the “DeepSeek girl” meme.
+It is not an unauthorized use of an illustrator's existing artwork.
 
 > [!NOTE]
-> **This repository does nothing special.** It is a set of notes where I (a beginner) wrote down the
-> environment I put together on my own PC, exactly as it was, so I would not forget it. I would be happy
-> if it helps someone trying the same thing, but **there is no guarantee it works** — it just means it
-> worked on my machine.
-> If something comes up, tell me on X at [@\_ryu15\_](https://x.com/_ryu15_) or in an issue on this repository.
+> **These are a beginner's notes.** I wrote down the steps that worked on my own PC.
+> I hope they help others trying the same thing, but **I cannot guarantee they will work elsewhere**.
+> If you spot an issue, tell me on X at [@\_ryu15\_](https://x.com/_ryu15_) or in a repository issue.
 
-This is a guide to adding **one node** to an existing ComfyUI installation to generate from text or edit an image.
+This guide adds **one node** to an existing ComfyUI installation so you can generate images from text or edit a source image.
 You do not have to write Python yourself.
 
-The official quantized weights take about 17GB on disk.
+The official quantized weights take about 17GB.
 On my 12GB RTX 4070, a 1024×1024 image took about 10 seconds and a 2048×2048 image about 90 seconds.
 
 > [!WARNING]
