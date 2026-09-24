@@ -24,6 +24,36 @@ On my 12GB RTX 4070, a 1024×1024 image took about 10 seconds and a 2048×2048 i
 > **These instructions assume Linux (verified on Ubuntu 24.04).** Windows / macOS need a different route.
 > See [Requirements](#requirements) and [10-3. OS notes](#10-3-os-notes).
 
+## Table of contents
+
+<details>
+<summary>Show chapters</summary>
+
+- [Requirements](#requirements)
+- [1. Quick start](#1-quick-start)
+  - [1-1. Install](#1-1-install)
+  - [1-2. Verify](#1-2-verify)
+  - [1-3. Open and run a workflow](#1-3-open-and-run-a-workflow)
+- [2. Let an AI agent do the setup](#2-let-an-ai-agent-do-the-setup)
+- [3. Editing examples and settings](#3-editing-examples-and-settings)
+- [4. What is running](#4-what-is-running)
+  - [4-1. What the weight files are, and where to get them](#4-1-what-the-weight-files-are-and-where-to-get-them)
+  - [4-2. What each piece does](#4-2-what-each-piece-does)
+  - [4-3. Exact model names and quantization](#4-3-exact-model-names-and-quantization)
+  - [4-4. Editing with reference images](#4-4-editing-with-reference-images)
+- [5. Inside the node](#5-inside-the-node)
+- [6. Measured numbers](#6-measured-numbers)
+- [7. When you want better quality](#7-when-you-want-better-quality)
+- [8. Troubleshooting](#8-troubleshooting)
+- [9. Things that will bite you](#9-things-that-will-bite-you)
+- [10. Manual installation and configuration](#10-manual-installation-and-configuration)
+- [11. Development and customization](#11-development-and-customization)
+- [12. Files](#12-files)
+- [13. License](#13-license)
+- [14. Sources](#14-sources)
+
+</details>
+
 ## Requirements
 
 | Item | Verified / expected here |
@@ -122,9 +152,10 @@ edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size
 
 </details>
 
-### 1-3. Use it in ComfyUI
+### 1-3. Open and run a workflow
 
-Start with the **reproducible underwater demo**:
+For a quick check of the ComfyUI interface, open and run the **fixed-seed underwater workflow**.
+The editing examples and their settings are explained separately in [3. Editing examples and settings](#3-editing-examples-and-settings).
 
 1. Open <http://127.0.0.1:8188> in your browser.
 2. Click **Workflows** in the left sidebar.
@@ -171,36 +202,6 @@ Here is the generation in progress (about 20 seconds). An [MP4 version](docs/dem
 
 For port changes or access from another device on your LAN, see [10-5. Ports and connection](#10-5-ports-and-connection).
 
-## Table of contents
-
-<details>
-<summary>Show chapters</summary>
-
-- [Requirements](#requirements)
-- [1. Quick start](#1-quick-start)
-  - [1-1. Install](#1-1-install)
-  - [1-2. Verify](#1-2-verify)
-  - [1-3. Use it in ComfyUI](#1-3-use-it-in-comfyui)
-- [2. Let an AI agent do the setup](#2-let-an-ai-agent-do-the-setup)
-- [3. Editing demo](#3-editing-demo)
-- [4. What is running](#4-what-is-running)
-  - [4-1. What the weight files are, and where to get them](#4-1-what-the-weight-files-are-and-where-to-get-them)
-  - [4-2. What each piece does](#4-2-what-each-piece-does)
-  - [4-3. Exact model names and quantization](#4-3-exact-model-names-and-quantization)
-  - [4-4. Editing with reference images](#4-4-editing-with-reference-images)
-- [5. Inside the node](#5-inside-the-node)
-- [6. Measured numbers](#6-measured-numbers)
-- [7. When you want better quality](#7-when-you-want-better-quality)
-- [8. Troubleshooting](#8-troubleshooting)
-- [9. Things that will bite you](#9-things-that-will-bite-you)
-- [10. Manual installation and configuration](#10-manual-installation-and-configuration)
-- [11. Development and customization](#11-development-and-customization)
-- [12. Files](#12-files)
-- [13. License](#13-license)
-- [14. Sources](#14-sources)
-
-</details>
-
 ## 2. Let an AI agent do the setup
 
 If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, copy and give it the instructions below.
@@ -223,7 +224,7 @@ If an existing ComfyUI is elsewhere, run install.sh with COMFY=/path/to/ComfyUI 
 If there is anything you are unsure about, ask me before you run it.
 ```
 
-## 3. Editing demo
+## 3. Editing examples and settings
 
 Connect a reference image to `image_1` to enter edit mode.
 In this example, the character's face, outfit, and art style remain while the surroundings change.
