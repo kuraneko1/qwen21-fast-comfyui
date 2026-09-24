@@ -84,11 +84,10 @@ def _size(aspect_ratio, megapixels):
 class Qwen21FastGenerate:
     """Prompt (and optionally up to four reference images) in, image out."""
 
-    DESCRIPTION = ("Qwen-Image-2.1 in one node: text to image, or image editing when a "
-                   "reference is connected to image_1. cfg and sampler are fixed at the "
-                   "model's official setting (1.0, euler/simple); size is aspect ratio x "
-                   "megapixels; steps = 0 picks 12 when the long side is 1024 px or less "
-                   "and 20 above that.")
+    DESCRIPTION = ("Write a prompt and press Run to create an image. To edit a picture, connect "
+                   "LoadImage to image_1, then describe what to change and what to keep. "
+                   "Leave image_1 empty for text-to-image. The default settings choose the "
+                   "model's recommended cfg and sampler; steps = 0 chooses the step count.")
     SEARCH_ALIASES = ["qwen", "qwen image", "qwen 2.1", "qwen21", "text to image",
                       "image edit", "fast"]
 
@@ -97,9 +96,13 @@ class Qwen21FastGenerate:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True, "dynamicPrompts": True,
+                                      "tooltip": "Describe the new image. If image_1 is connected, "
+                                                 "describe what to change and what to keep.",
                                       "default": "a ceramic teapot and two cups on a linen "
                                                  "tablecloth, soft morning light, photograph"}),
-                "aspect_ratio": (list(ASPECT_RATIOS), {"default": "1:1"}),
+                "aspect_ratio": (list(ASPECT_RATIOS), {"default": "1:1",
+                                                     "tooltip": "Shape for text-to-image. When editing, "
+                                                                "the reference image decides the shape."}),
                 "megapixels": (MEGAPIXELS, {"default": "1",
                                             "tooltip": "1 is about 1024x1024, 4 is 2048x2048 "
                                                        "(the model's native 2K). With a "

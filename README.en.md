@@ -113,7 +113,12 @@ edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size
 
 ### 1-3. Use it in ComfyUI
 
-Open ComfyUI and choose **Workflows → `qwen21_fast_t2i`** for text-to-image. To edit a reference image, open **`qwen21_fast_edit`** and select your image in the LoadImage node (the default `example.png` is not included).
+Open ComfyUI and choose from **Workflows**:
+
+- **Text-to-image:** open `qwen21_fast_t2i`, write a prompt, and press Run.
+- **Image editing:** open `qwen21_fast_edit` and press Run. The source image, underwater prompt, and seed are already set. To use your own image, select it in the LoadImage node.
+
+A second edit with identical settings uses the cache. Switch the seed control from `fixed` to `randomize` to try a new result.
 
 The default UI is <http://127.0.0.1:8188>.
 
@@ -122,6 +127,14 @@ The default UI is <http://127.0.0.1:8188>.
 Type a prompt and press Run; the result appears in the Save Image node.
 
 ![right after a run](docs/ui_used_en.png)
+
+This image came from an actual run of the text-to-image workflow.
+
+![A teapot generated from the text prompt](docs/demo/text_to_image.png)
+
+I also captured the generation in progress (about 20 seconds). An [MP4 version](docs/demo/generation.mp4) is available too.
+
+![Animation of the ComfyUI screen during generation](docs/demo/generation.gif)
 
 For port changes or access from another device on your LAN, see [10-5. Ports and connection](#10-5-ports-and-connection).
 
@@ -152,6 +165,12 @@ Connect a reference image to `image_1` and you are in edit mode. This is the sam
 character's identity, outfit and art style kept while only the surroundings change (the collage at the top
 shows the original plus the 3 edits).
 
+Open **Workflows → `qwen21_fast_edit`** to load the source image and underwater prompt shown below, then press Run. The central "Qwen 2.1 Fast Generate" node edits when `image_1` is connected; without a reference, it generates from text.
+
+![ComfyUI editing workflow showing the source and underwater result](docs/demo/edit_workflow_en.png)
+
+LoadImage on the left supplies the source; `prompt` in the middle describes the edit; Save Image on the right shows the result. Disconnect `image_1` to use the same node for text-to-image.
+
 | | scene | seed |
 |---|---|---|
 | original | a plain-background character illustration (1672x941) | — |
@@ -159,8 +178,16 @@ shows the original plus the 3 edits).
 | 2 underwater | water spiralling around her like a deep-sea empress | 274968494187645 |
 | 3 rain | struck by torrential rain | 73346377262621 |
 
+#### Original image
+
+![Original reference image](docs/demo/source.png)
+
+#### 1. Fire
+
+![1. Fire result](docs/demo/fire.png)
+
 <details>
-<summary>the 3 prompts in full</summary>
+<summary>Full fire prompt</summary>
 
 ```text
 Edit the reference image: keep the character clearly recognizable while placing her in a dramatic scene where her clothing and the space around her are engulfed in intense flames. Preserve her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall anime style. Change her expression so that she looks slightly teary and on the verge of crying, with watery eyes and a distressed, trembling expression, while still remaining cute and expressive.
@@ -168,9 +195,27 @@ Edit the reference image: keep the character clearly recognizable while placing 
 Add vivid fire surrounding her body, sleeves, skirt, and the air around her, with bright orange flames, glowing embers, smoke, sparks, heat distortion, and strong cinematic fire lighting. The flames should look powerful and visually striking, but do not show gore, injuries, or graphic burns. Keep the character as the clear focal point. Highly detailed, dramatic, emotional, and visually impactful.
 ```
 
+</details>
+
+#### 2. Underwater
+
+![2. Underwater result](docs/demo/underwater.png)
+
+<details>
+<summary>Full underwater prompt</summary>
+
 ```text
 Edit the reference image: transform the character into a dramatic deep-sea empress scene while preserving her core identity, recognizable face, blue gradient long hair, bright blue eyes, playful smug expression, maid outfit, whale-themed details, and overall cute anime style. Surround her with a powerful vortex of ocean water, glowing bioluminescent particles, giant splashes, swirling currents, floating bubbles, and luminous deep-sea light rays. Add a majestic underwater atmosphere with translucent water ribbons spiraling around her body, as if she is commanding the sea. Enhance the whale/ocean motif with subtle spectral whale silhouettes and elegant aquatic energy. Make the scene highly dynamic, cinematic, magical, and visually striking, with strong motion, dramatic lighting, and rich blue tones. Keep the character as the clear focal point.
 ```
+
+</details>
+
+#### 3. Rain
+
+![3. Rain result](docs/demo/rain.png)
+
+<details>
+<summary>Full rain prompt</summary>
 
 ```text
 Edit the reference image: place the character in an intense torrential rainstorm while preserving her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall cute anime style. Change her expression slightly so that she looks teary and on the verge of crying, with watery eyes, a trembling mouth, and a sad, distressed but still cute expression.
@@ -179,6 +224,7 @@ Add extremely heavy pouring rain throughout the scene, with dense rain streaks, 
 
 Make the final result highly detailed, emotional, cinematic, and visually striking. No gore, no injury, no burial, no extra characters. Keep the character as the clear focal point.
 ```
+
 </details>
 
 **Settings**: the reference is 1672x941 and the output is **1376x768** (same aspect ratio, 1 MP of area).
@@ -204,7 +250,7 @@ cfg 1.0 / euler simple. About **20 s per image** (RTX 4070 12GB, model resident;
 The CLI equivalent:
 
 ```bash
-python3 test_qwen21_edit.py ref.png "<prompt>" 1 --seed 1030019892377945
+python3 test_qwen21_edit.py docs/demo/source.png "$(cat docs/demo/underwater.txt)" 1 --seed 274968494187645
 ```
 
 To try your own image, for example: `python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"`.
@@ -317,17 +363,17 @@ setting `reference_fit` to `keep original size` uses the reference image without
 time only when the reference is larger than the output (at 1024x1024 the two modes measure the same,
 15.9 s vs 16.7 s).
 
-The bundled `workflows/qwen21_fast_edit.json` loads an image named `example.png`. Put your own image at
-`ComfyUI/input/example.png`, or pick another file in the LoadImage node.
+The bundled `workflows/qwen21_fast_edit.json` loads the source image that `install.sh` places at
+`ComfyUI/input/qwen21_demo_source.png`. To use your own image, select it in the LoadImage node.
 
 ## 5. Inside the node
 
 | in / out | name | meaning |
 |---|---|---|
-| input | `prompt` | the prompt |
+| input | `prompt` | describe the new image, or, when editing, what to change and what to keep |
 | input | `aspect_ratio` × `megapixels` | aspect ratio (1:1 / 4:3 / 3:4 / 3:2 / 2:3 / 16:9 / 9:16) and size (0.5 / 1 / 2 / 4 MP). **1MP = 1024x1024, 4MP = 2048x2048**. With a reference connected the output takes the reference's aspect ratio, so `aspect_ratio` is ignored; `megapixels` then fixes the **area** (a 16:9 reference at `megapixels=2` comes out 1920x1088 - not 1440 wide, but about the same area as 1440x1440) |
 | input | `steps` | 0 = automatic (**12 steps when the long side is 1024 px or less**, 20 above that. 1:1 at 1MP takes 12; 4:3 and 16:9 at 1MP have a 1184 / 1376 px long side, so they take 20) |
-| input | `seed` | the random seed. **Randomized by default**: the node enables the frontend's `control after generate` widget, so both a freshly added node and the shipped workflows come up as `randomize` and every run gives a new image. Switch it to `fixed` and note the seed to reproduce one |
+| input | `seed` | the random seed. A new node and the text-to-image workflow use `randomize` for a new image each run. The editing demo alone uses `fixed` so the underwater example is reproducible. Switch it to `randomize` to try other results |
 | input | `count` | how many to make at once (seed, seed+1, …). The results come back together |
 | input | `reference_fit` | how reference images are handled (`match output` = match the output size / `keep original size` = keep the reference's original size. The latter is only lighter when the reference is bigger than the output; with a 1024x1024 reference the two measure the same, 15.9 s vs 16.7 s) |
 | input | `unet_name` / `clip_name` / `vae_name` | which of the three weight files (the default is the three above) |
@@ -439,7 +485,7 @@ A rough guide to what changes what:
 1. Downloads the **three weight files** from the official repository into `$MODELS` (default `~/qwen-image-2.1-models`) (about 17GB, resumable)
 2. Places them into the three ComfyUI folders. On the same filesystem it uses **hardlinks**, so this needs almost no extra space. Across filesystems it falls back to copying, which needs the same additional space on the ComfyUI side
 3. Copies `custom_nodes/qwen21_fast` into `$COMFY/custom_nodes/` (that is, installing the node)
-4. Copies `workflows/*.json` into `$COMFY/user/default/workflows/` (so they show up in the UI's workflow list)
+4. Copies `workflows/*.json` into `$COMFY/user/default/workflows/` and the demo source image into `$COMFY/input/` (so editing works immediately)
 5. Restarts ComfyUI (it finds and restarts the `systemd --user` service. If it does not find one it does
    nothing, so restart it the way you usually do. **Custom nodes are only read at startup**)
 
@@ -466,14 +512,17 @@ mv ~/qwen-image-2.1-models/text_encoders/qwen3vl_8b_int8_convrot.safetensors    
 mv ~/qwen-image-2.1-models/vae/qwen_image_2.1_vae_bf16.safetensors                  $C/models/vae/
 ```
 
-**B3. Install the node** — clone this repository and copy the folder.
+**B3. Install the node and demo** — clone this repository and copy the node, workflows, and source image.
 
 ```bash
 git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git /tmp/qwen21-fast-comfyui
 cp -r /tmp/qwen21-fast-comfyui/custom_nodes/qwen21_fast ~/ComfyUI/custom_nodes/
+mkdir -p ~/ComfyUI/user/default/workflows ~/ComfyUI/input
+cp /tmp/qwen21-fast-comfyui/workflows/*.json ~/ComfyUI/user/default/workflows/
+cp /tmp/qwen21-fast-comfyui/docs/demo/source.png ~/ComfyUI/input/qwen21_demo_source.png
 ```
 
-(Cloning this repository directly inside `custom_nodes/` is fine too. The only thing ComfyUI loads is `qwen21_fast` inside it)
+(Cloning this repository directly inside `custom_nodes/` is fine too. You still need to copy the workflows and source image to the paths above.)
 
 **B4. Restart ComfyUI** — a running ComfyUI will not notice the new node. Be sure to restart it.
 
@@ -597,6 +646,11 @@ docs/collage_en.png              the collage at the top (the original + 3 scenes
 docs/pipeline_en.png             the diagram in section 4 (an HTML render)
 docs/ui_workflow_en.png          the ComfyUI screen with the workflow loaded
 docs/ui_used_en.png              the same screen after a run (the node actually in use)
+docs/demo/source.png             source image for editing (copied to ComfyUI during installation)
+docs/demo/fire.png / underwater.png / rain.png   edited results and matching prompt .txt files
+docs/demo/edit_workflow_en.png   ComfyUI screen showing the source and underwater result
+docs/demo/text_to_image.png      image generated by the text-to-image workflow
+docs/demo/generation.gif / .mp4  animation and video of generation in progress
 docs/diagram.html / .en.html     the diagram source (HTML, Japanese and English)
 docs/render_diagram.sh           renders the diagram to PNG (headless Chrome, 2x scale)
 docs/diagram-spec.md             the content spec for the diagram (no design brief)
@@ -606,7 +660,8 @@ docs/capture_ui.py               the script that takes the screenshot
 The diagrams and screenshots can be regenerated: `./docs/render_diagram.sh` redraws the diagram from the HTML, and
 `python3 docs/capture_ui.py docs --lang en --run` screenshots a running ComfyUI with the workflow loaded
 (`ui_empty_en.png` as it opens, `ui_workflow_en.png` once the workflow is loaded, and with `--run` it
-generates one image and also writes `ui_used_en.png`; `--lang ja` for the Japanese UI).
+generates one image and also writes `ui_used_en.png`; `--lang ja` for the Japanese UI). The editing
+demo screen was captured with `--workflow qwen21_fast_edit --run`.
 
 ## 13. License
 

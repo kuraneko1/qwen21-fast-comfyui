@@ -11,20 +11,13 @@ from pathlib import Path
 
 WF_DIR = Path(os.environ.get("COMFY_DIR", Path.home() / "ComfyUI")) / "user/default/workflows"
 HOST = os.environ.get("COMFY_HOST", "http://127.0.0.1:8188")
+DEMO_IMAGE = "qwen21_demo_source.png"
+DEMO_PROMPT = (Path(__file__).resolve().parent / "docs/demo/underwater.txt").read_text().strip()
+DEMO_SEED = 274968494187645
 
-DEFAULTS = {
-    "prompt": "a ceramic teapot and two cups on a linen tablecloth, soft morning light, photograph",
-    "width": 1024, "height": 1024, "steps": 0, "seed": 123456, "cfg": 1.0,
-    "sampler_name": "euler", "scheduler": "simple",
-    "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
-    "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
-    "vae_name": "qwen_image_2.1_vae_bf16.safetensors",
-    "resolution": 1024, "negative_prompt": "",
-}
-
-
-def widget_values(node_id: str) -> tuple[list, dict]:
+def widget_values(node_id: str, overrides=None) -> tuple[list, dict]:
     """Widget order and defaults are read from the live node, so they cannot drift."""
+    overrides = overrides or {}
     info = json.load(urllib.request.urlopen(f"{HOST}/object_info/{node_id}", timeout=20))[node_id]
     values, named = [], {}
     for section in ("required", "optional"):
@@ -32,21 +25,24 @@ def widget_values(node_id: str) -> tuple[list, dict]:
             kind = spec[0]
             if not isinstance(kind, list) and kind not in ("INT", "FLOAT", "STRING", "BOOLEAN"):
                 continue  # link-only socket (IMAGE / MODEL / CLIP / VAE)
-            default = spec[1].get("default", kind[0] if isinstance(kind, list) else None)
+            default = overrides.get(name, spec[1].get("default", kind[0] if isinstance(kind, list) else None))
             values.append(default)
             named[name] = default
             if name == "seed":
-                # Frontend-only widget. "randomize" so that pressing Run again gives a new
-                # image instead of the cached same one; switch it to "fixed" to reproduce.
-                values.append("randomize")
-                named["control_after_generate"] = "randomize"   # the UI saves it under this name
+                # Frontend-only widget. Text-to-image randomizes for a fresh image;
+                # the editing demo fixes its documented seed for reproducibility.
+                control = overrides.get("control_after_generate", "randomize")
+                values.append(control)
+                named["control_after_generate"] = control   # the UI saves it under this name
     return values, named
 
 
 def main() -> None:
-    values, named = widget_values("Qwen21FastGenerate")
     WF_DIR.mkdir(parents=True, exist_ok=True)
     for edit in (False, True):
+        overrides = ({"prompt": DEMO_PROMPT, "seed": DEMO_SEED,
+                      "control_after_generate": "fixed"} if edit else {})
+        values, named = widget_values("Qwen21FastGenerate", overrides)
         nodes = []
         links = []
         if edit:
@@ -56,7 +52,7 @@ def main() -> None:
                 "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [1], "slot_index": 0},
                             {"name": "MASK", "type": "MASK", "links": None, "slot_index": 1}],
                 "properties": {"Node name for S&R": "LoadImage"},
-                "widgets_values": ["example.png", "image"]})
+                "widgets_values": [DEMO_IMAGE, "image"]})
             links.append([1, 1, 0, 2, 0, "IMAGE"])  # target slot 0 = image_1
         nodes.append({
             "id": 2, "type": "Qwen21FastGenerate", "pos": [450, 120], "size": [430, 700],

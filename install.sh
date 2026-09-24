@@ -55,11 +55,12 @@ place "$MODELS/$DIT" "$COMFY/models/diffusion_models"
 place "$MODELS/$TE"  "$COMFY/models/text_encoders"
 place "$MODELS/$VAE" "$COMFY/models/vae"
 
-echo "== 3/4 custom node + workflows"
+echo "== 3/4 custom node + workflows + demo image"
 here="$(cd "$(dirname "$0")" && pwd)"
-run mkdir -p "$COMFY/custom_nodes" "$COMFY/user/default/workflows"
+run mkdir -p "$COMFY/custom_nodes" "$COMFY/user/default/workflows" "$COMFY/input"
 install_dir "$here/custom_nodes/qwen21_fast" "$COMFY/custom_nodes/qwen21_fast"
 run cp -f "$here"/workflows/*.json "$COMFY/user/default/workflows/"
+run cp -f "$here/docs/demo/source.png" "$COMFY/input/qwen21_demo_source.png"
 
 echo "== 4/4 restart ComfyUI (systemd user unit; adjust if you run it another way)"
 # `|| true` keeps a no-match case non-fatal, and nothing here pipes into a consumer that stops

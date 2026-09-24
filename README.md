@@ -111,7 +111,12 @@ edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size
 
 ### 1-3. ComfyUIで使う
 
-ComfyUIを開き、**Workflows → `qwen21_fast_t2i`** を選べばテキストから生成できます。参照画像を編集する場合は **`qwen21_fast_edit`** を開き、LoadImageノードで手持ちの画像を選んでください（初期値の `example.png` は同梱されていません）。
+ComfyUIを開き、**Workflows** から選びます。
+
+- **テキストから生成:** `qwen21_fast_t2i` を開き、プロンプトを書いて Run。
+- **画像編集:** `qwen21_fast_edit` を開いて Run。元画像・水中のプロンプト・seedは設定済みです。自分の画像を使うときは、LoadImageノードで選び直します。
+
+同じ編集をもう一度実行するとキャッシュされます。別の絵を試すときは seed の `fixed` を `randomize` に変えてください。
 
 既定のUIは <http://127.0.0.1:8188> です。
 
@@ -120,6 +125,14 @@ ComfyUIを開き、**Workflows → `qwen21_fast_t2i`** を選べばテキスト�
 プロンプトを書いて Run を押すと、SaveImage ノードに結果が表示されます。
 
 ![実行直後の画面](docs/ui_used_ja.png)
+
+このワークフローを実際に動かして生成した画像です。
+
+![テキストから生成したティーポットの画像](docs/demo/text_to_image.png)
+
+生成中の画面も撮りました（約20秒）。[MP4版](docs/demo/generation.mp4)もあります。
+
+![生成中のComfyUI画面を撮ったアニメーション](docs/demo/generation.gif)
 
 ポート変更やLAN内の別端末から開く方法は [10-5. ポートと接続先](#10-5-ポートと接続先) を参照してください。
 
@@ -149,6 +162,12 @@ ComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付�
 参照画像を `image_1` に繋ぐと編集モードになります。**同じ1枚から、キャラクターの同一性・服装・画風を保ったまま
 周囲のシーンだけを変える**例です（冒頭のコラージュは元画像＋編集後の3枚）。
 
+**Workflows → `qwen21_fast_edit`** を開くと、下の元画像と水中のプロンプトが入っています。Run を押すだけで試せます。中央の「Qwen 2.1 Fast Generate」ノードは、`image_1` に画像が繋がっていると編集、繋がっていないとテキストから生成します。
+
+![元画像を読み込み水中の編集結果を表示したComfyUIワークフロー](docs/demo/edit_workflow_ja.png)
+
+左のLoadImageが元画像、中央の `prompt` が編集内容、右のSave Imageが完成画像です。`image_1` の線を外すと、同じノードでテキストからの生成に切り替わります。
+
 | | シーン | seed |
 |---|---|---|
 | 元画像 | 白背景のキャラクター立ち絵（1672×941） | — |
@@ -156,8 +175,16 @@ ComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付�
 | ② 水中 | 深海の女王のように水が渦を巻く | 274968494187645 |
 | ③ 雨 | 豪雨に打たれる | 73346377262621 |
 
+#### 元画像
+
+![元画像](docs/demo/source.png)
+
+#### ① 炎
+
+![① 炎](docs/demo/fire.png)
+
 <details>
-<summary>3枚のプロンプト（全文）</summary>
+<summary>炎のプロンプト全文</summary>
 
 ```text
 Edit the reference image: keep the character clearly recognizable while placing her in a dramatic scene where her clothing and the space around her are engulfed in intense flames. Preserve her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall anime style. Change her expression so that she looks slightly teary and on the verge of crying, with watery eyes and a distressed, trembling expression, while still remaining cute and expressive.
@@ -165,9 +192,27 @@ Edit the reference image: keep the character clearly recognizable while placing 
 Add vivid fire surrounding her body, sleeves, skirt, and the air around her, with bright orange flames, glowing embers, smoke, sparks, heat distortion, and strong cinematic fire lighting. The flames should look powerful and visually striking, but do not show gore, injuries, or graphic burns. Keep the character as the clear focal point. Highly detailed, dramatic, emotional, and visually impactful.
 ```
 
+</details>
+
+#### ② 水中
+
+![② 水中](docs/demo/underwater.png)
+
+<details>
+<summary>海のプロンプト全文</summary>
+
 ```text
 Edit the reference image: transform the character into a dramatic deep-sea empress scene while preserving her core identity, recognizable face, blue gradient long hair, bright blue eyes, playful smug expression, maid outfit, whale-themed details, and overall cute anime style. Surround her with a powerful vortex of ocean water, glowing bioluminescent particles, giant splashes, swirling currents, floating bubbles, and luminous deep-sea light rays. Add a majestic underwater atmosphere with translucent water ribbons spiraling around her body, as if she is commanding the sea. Enhance the whale/ocean motif with subtle spectral whale silhouettes and elegant aquatic energy. Make the scene highly dynamic, cinematic, magical, and visually striking, with strong motion, dramatic lighting, and rich blue tones. Keep the character as the clear focal point.
 ```
+
+</details>
+
+#### ③ 雨
+
+![③ 雨](docs/demo/rain.png)
+
+<details>
+<summary>雨のプロンプト全文</summary>
 
 ```text
 Edit the reference image: place the character in an intense torrential rainstorm while preserving her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall cute anime style. Change her expression slightly so that she looks teary and on the verge of crying, with watery eyes, a trembling mouth, and a sad, distressed but still cute expression.
@@ -176,6 +221,7 @@ Add extremely heavy pouring rain throughout the scene, with dense rain streaks, 
 
 Make the final result highly detailed, emotional, cinematic, and visually striking. No gore, no injury, no burial, no extra characters. Keep the character as the clear focal point.
 ```
+
 </details>
 
 **共通の設定**: 参照画像は 1672×941、出力は **1376×768**（参照の縦横比を保ち、面積が1MPになるサイズ）。
@@ -200,7 +246,7 @@ cfg 1.0 / euler simple。所要は**1枚あたり約20秒**（RTX 4070 12GB・�
 CLI から同じ編集をする場合:
 
 ```bash
-python3 test_qwen21_edit.py ref.png "<プロンプト>" 1 --seed 1030019892377945
+python3 test_qwen21_edit.py docs/demo/source.png "$(cat docs/demo/underwater.txt)" 1 --seed 274968494187645
 ```
 
 手持ちの画像で試すなら、例えば `python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"` です。
@@ -306,17 +352,16 @@ ComfyUIが更新されてもそのまま動きます。
 `keep original size` にすると、参照画像を縮小せずに使います。ただし軽くなるのは**参照が出力より
 大きいときだけ**で、1024x1024の参照では `match output` とほぼ同じです（実測 15.9秒 vs 16.7秒）。
 
-同梱の `workflows/qwen21_fast_edit.json` は `example.png` という名前の画像を読み込む作りです。
-使うときは自分の画像を `ComfyUI/input/example.png` に置くか、LoadImageノードで選び直してください。
+同梱の `workflows/qwen21_fast_edit.json` は、`install.sh` が `ComfyUI/input/qwen21_demo_source.png` に置く元画像を読み込みます。自分の画像を使うときは、LoadImageノードで選び直してください。
 
 ## 5. ノードの中身
 
 | 入出力 | 名前 | 意味 |
 |---|---|---|
-| 入力 | `prompt` | プロンプト |
+| 入力 | `prompt` | テキストから生成するときは描きたいもの、編集するときは変える部分と残す部分を書きます |
 | 入力 | `aspect_ratio` × `megapixels` | 縦横比（1:1 / 4:3 / 3:4 / 3:2 / 2:3 / 16:9 / 9:16）と大きさ（0.5 / 1 / 2 / 4 MP）。**1MP＝1024x1024、4MP＝2048x2048**。参照画像を繋いだときは `aspect_ratio` は効きません（縦横比は参照画像に従います）。このとき `megapixels` が決めるのは**面積**です（例: 16:9の参照で `megapixels=2` → 1920x1088。長辺が1440になるのではなく、1440x1440とほぼ同じ面積になります） |
 | 入力 | `steps` | 0＝自動（**長辺が1024px以下なら12ステップ**、それより大きければ20。1:1の1MPは12、4:3・16:9の1MPは長辺が1184・1376pxなので20になります） |
-| 入力 | `seed` | 乱数の種。**既定でランダム**です（ノード自身が `control after generate` を有効にしているので、新しく追加したノードも同梱ワークフローも `randomize`）。実行のたびに違う絵が出ます。同じ絵を再現したいときは `fixed` に切り替えてseedの値を控えてください |
+| 入力 | `seed` | 乱数の種。新しく追加したノードとテキスト生成ワークフローは `randomize` で毎回違う絵を出します。編集デモのワークフローだけは水中の結果を再現しやすいよう `fixed` です。ほかの絵を試すなら `randomize` に切り替えてください |
 | 入力 | `count` | 一度に何枚作るか（seed, seed+1, …）。結果はまとめて返ります |
 | 入力 | `reference_fit` | 参照画像の扱い（`match output`＝出力サイズに合わせる／`keep original size`＝参照の元サイズのまま。後者が軽くなるのは参照が出力より大きいときだけで、1024x1024の参照では両者ほぼ同じ〔実測15.9秒 vs 16.7秒〕） |
 | 入力 | `unet_name` / `clip_name` / `vae_name` | 重み3ファイルの指定（既定は上の3つ） |
@@ -417,7 +462,7 @@ euler/simple が公式の設定で、それ以外にすると遅くなるだけ�
 1. 公式リポジトリから**重み3ファイル**を `$MODELS`（既定 `~/qwen-image-2.1-models`）にダウンロード（約17GB・途中再開可）
 2. それをComfyUIの3つのフォルダに配置。同一ファイルシステムなら**ハードリンク**するので追加容量はほぼ不要です。別ファイルシステムではコピーにフォールバックするため、その場合はComfyUI側にも同容量が必要です
 3. `custom_nodes/qwen21_fast` を `$COMFY/custom_nodes/` にコピー（＝ノードの設置）
-4. `workflows/*.json` を `$COMFY/user/default/workflows/` にコピー（UIのワークフロー一覧に出るように）
+4. `workflows/*.json` を `$COMFY/user/default/workflows/` に、デモの元画像を `$COMFY/input/` にコピー（開いてすぐ編集を試せるように）
 5. ComfyUIを再起動（`systemd --user` のサービスを見つけて再起動します。見つからなければ何もしないので、
    いつもの方法で再起動してください。**カスタムノードは起動時にしか読み込まれません**）
 
@@ -444,14 +489,17 @@ mv ~/qwen-image-2.1-models/text_encoders/qwen3vl_8b_int8_convrot.safetensors    
 mv ~/qwen-image-2.1-models/vae/qwen_image_2.1_vae_bf16.safetensors                  $C/models/vae/
 ```
 
-**B3. ノードを入れる** — このリポジトリをcloneして、フォルダをコピーします。
+**B3. ノードとデモを入れる** — このリポジトリをcloneして、ノード・ワークフロー・元画像をコピーします。
 
 ```bash
 git clone https://github.com/kuraneko1/qwen21-fast-comfyui.git /tmp/qwen21-fast-comfyui
 cp -r /tmp/qwen21-fast-comfyui/custom_nodes/qwen21_fast ~/ComfyUI/custom_nodes/
+mkdir -p ~/ComfyUI/user/default/workflows ~/ComfyUI/input
+cp /tmp/qwen21-fast-comfyui/workflows/*.json ~/ComfyUI/user/default/workflows/
+cp /tmp/qwen21-fast-comfyui/docs/demo/source.png ~/ComfyUI/input/qwen21_demo_source.png
 ```
 
-（このリポジトリを `custom_nodes/` の中に直接cloneしてもOKです。ComfyUIが読み込むのは中の `qwen21_fast` だけです）
+（このリポジトリを `custom_nodes/` の中に直接cloneしてもOKです。その場合もワークフローと元画像は上の場所へコピーしてください）
 
 **B4. ComfyUIを再起動** — 動いているComfyUIは新しいノードに気づきません。必ず再起動してください。
 
@@ -572,16 +620,22 @@ docs/collage_ja.png              冒頭のコラージュ（元画像＋3シー�
 docs/pipeline_ja.png             §4の構成図（HTMLから生成したPNG）
 docs/ui_workflow_ja.png          ワークフローを開いた画面
 docs/ui_used_ja.png              実行して結果が出ている画面（ノードを実際に使っている状態）
+docs/demo/source.png             編集デモの元画像（インストール時にComfyUIへコピー）
+docs/demo/fire.png / underwater.png / rain.png   編集結果と同名のプロンプト.txt
+docs/demo/edit_workflow_ja.png   元画像から水中の結果を出した画面
+docs/demo/text_to_image.png      テキストから実際に生成した画像
+docs/demo/generation.gif / .mp4  生成中の画面（アニメーションと動画）
 docs/diagram.html / .en.html     概念図の元データ（HTML。日本語版と英語版）
 docs/render_diagram.sh           概念図をPNGに書き出す（ヘッドレスChrome・2倍解像度）
 docs/diagram-spec.md             概念図の設計書（何を描くかの指定のみ。デザイン指定なし）
 docs/capture_ui.py               スクリーンショットを撮るスクリプト
 ```
 
-画像はすべて生成物です。概念図は `./docs/render_diagram.sh` でHTMLから描き直せます（Chromeのヘッドレス実行）。
+概念図とUIスクリーンショットは生成物です。概念図は `./docs/render_diagram.sh` でHTMLから描き直せます（Chromeのヘッドレス実行）。
 スクリーンショットは `python3 docs/capture_ui.py docs --lang ja --run` で、起動中のComfyUIにワークフローを
 読み込ませて撮ります（`ui_empty_ja.png`＝開いた直後、`ui_workflow_ja.png`＝ワークフロー読込後、`--run` を
-付けると実際に1枚生成して `ui_used_ja.png` も撮ります。`--lang en` で英語UI版）。
+付けると実際に1枚生成して `ui_used_ja.png` も撮ります。`--lang en` で英語UI版）。編集デモの画面も
+`--workflow qwen21_fast_edit --run` で撮影しました。
 
 ## 13. ライセンス
 

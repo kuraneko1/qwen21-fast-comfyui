@@ -10,9 +10,9 @@ image, so the screenshot shows the node in use (the result is drawn inside the S
 The screenshots committed in this repository are ui_workflow_<lang>.png (no --run) and
 ui_used_<lang>.png (with --run).
 
-Two details make --run work: the job is queued with the frontend's OWN client_id (read from the
-websocket URL the page opened, via a recorder installed before navigation), because the UI only
-paints results for its own client; and the canvas is asked to repaint once the job finishes.
+Two details make --run work: the job is queued with the frontend's OWN client_id (read from
+app.api.clientId, with a recorded websocket URL as fallback), because the UI only paints
+results for its own client; and the canvas is asked to repaint once the job finishes.
 
 --eval runs arbitrary JS in the page and prints the value (no screenshot) - handy for probing the
 frontend, e.g. --eval '(async () => { const n = LiteGraph.createNode("Qwen21FastGenerate");
@@ -167,8 +167,8 @@ def main():
         ws = WS(page["webSocketDebuggerUrl"])
         ws.call("Page.enable")
         ws.call("Runtime.enable")
-        # Record the frontend's own websocket URL before the app connects: the UI only
-        # paints results for jobs queued with that same client_id.
+        # Keep the websocket URL as a fallback for older frontend versions where the
+        # client_id was included in its query string.
         ws.call("Page.addScriptToEvaluateOnNewDocument", {"source": (
             "(() => { const OW = window.WebSocket; window.__wsurls = [];"
             " window.WebSocket = function (u, p) {"
@@ -222,10 +222,15 @@ def main():
             if a.run:
                 # Actually generate an image, so the screenshot shows the node in use.
                 res = ws.call("Runtime.evaluate",
-                              {"expression": "JSON.stringify(window.__wsurls || [])",
+                              {"expression": "window.app?.api?.clientId || ''",
                                "returnByValue": True})
-                seen = json.loads(res.get("result", {}).get("value") or "[]")
-                cid = next((u.split("clientId=")[1] for u in seen if "clientId=" in u), "")
+                cid = res.get("result", {}).get("value") or ""
+                if not cid:
+                    res = ws.call("Runtime.evaluate",
+                                  {"expression": "JSON.stringify(window.__wsurls || [])",
+                                   "returnByValue": True})
+                    seen = json.loads(res.get("result", {}).get("value") or "[]")
+                    cid = next((u.split("clientId=")[1] for u in seen if "clientId=" in u), "")
                 print("frontend client_id ->", cid or "(not found)")
                 expr = ("(async () => {"
                         "const p = await window.app.graphToPrompt();"
@@ -249,10 +254,12 @@ def main():
                               timeout=900)
                 print("generation ->", res.get("result", {}).get("value"))
 
-                # Wait until the frontend has actually painted the output image:
-                # a finished job in /history is not the same as a rendered thumbnail.
+                # SaveImage previews are drawn on the canvas, not necessarily as DOM <img> tags.
+                # A finished job in /history is not the same as a rendered preview.
                 wait_js = ("(async () => {"
                            "for (let i = 0; i < 120; i++) {"
+                           "  const save = window.app.graph._nodes.find(n => n.type === 'SaveImage');"
+                           "  if (save?.imgs?.length) return 'canvas preview x' + save.imgs.length;"
                            "  const imgs = [...document.querySelectorAll('img')]"
                            "    .filter(el => (el.src || '').includes('/api/view')"
                            "               || (el.src || '').includes('/view?'));"
