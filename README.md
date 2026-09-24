@@ -4,7 +4,7 @@
 
 ![1枚の参照画像から作った3つのシーン](docs/collage_ja.png)
 
-*同じ元画像を編集し、周囲のシーンを変えた3枚です。*
+*同じ元画像（左上）と、それを編集した3枚（炎・水中・雨）です。*
 
 **元画像について:** 「DeepSeek娘」ミームをもとに、このデモとは別にAIで生成された画像です。
 イラストレーターの既存作品を無断で使ったものではありません。
@@ -45,7 +45,7 @@ Pythonを自分で書く必要はありません。
 | 項目 | このリポジトリで確認している条件 |
 |---|---|
 | OS | **Linux**（Ubuntu 24.04で確認） |
-| GPU | **RTX 4070 12GB**で実測。新規導入ではNVIDIAドライバーと `nvidia-smi` が必要です。12GBを普遍的な最小要件とは断定しません |
+| GPU | **RTX 4070 12GB**で実測。新規導入ではNVIDIAドライバー（**580以降**。`--with-comfyui` はCUDA 13系のPyTorchを入れるため）と `nvidia-smi` が必要です。12GBを普遍的な最小要件とは断定しません |
 | ComfyUI | 既存のものを使うなら**0.37以降**（`TextEncodeQwenImage21` が必要）。未導入ならスクリプトが取得します |
 | Python | **3.10以降**の `python3`。新規導入では `venv` も必要です |
 | Git | `git` コマンドが必要です |
@@ -97,7 +97,7 @@ Ubuntu系LinuxとNVIDIA GPUの環境で、ComfyUI本体からまとめて導入�
 ./install.sh --with-comfyui             # ComfyUI・仮想環境・重み・ノードを導入
 ```
 
-`~/ComfyUI` がすでにある場合は上のAを使ってください。Bは既存のフォルダを上書きしません。
+`~/ComfyUI` がすでにある場合は上のAを使ってください。Bは既存のフォルダを見つけると、何もせずエラーで中止します（その場合はAを実行してください）。
 途中で通信が切れた場合は、同じコマンドを再実行できます。
 
 導入が終わったら、**別のターミナル**でComfyUIを起動します。
@@ -162,7 +162,7 @@ PNGファイルは `~/ComfyUI/output/` に保存されます（ComfyUIを別の�
 | 動画と同じ水中の娘を再現する | `qwen21_fast_edit_underwater_fixed` — seed `274968494187645` で固定 |
 
 画像編集の2つには、女の子の元画像と水中のプロンプトが最初から入っています。
-自分の画像を使うときだけ、左側の**画像を読み込む**ノードで選び直します。
+自分の画像を使うときだけ、左側の**画像を読み込む**ノードで選び直します（ノード内の**画像を選択**を押すか、画像ファイルをノードへドラッグ&ドロップ）。
 固定版を同じ設定で再実行すると、キャッシュされた結果が表示されます。
 
 <details>
@@ -178,9 +178,9 @@ PNGファイルは `~/ComfyUI/output/` に保存されます（ComfyUIを別の�
 
 実際に生成した画像です。
 
-![テキストから生成したティーポットの画像](docs/demo/text_to_image.png)
+![テキストから生成したティーポットの画像](docs/demo/text_to_image.jpg)
 
-生成中の画面です（約20秒）。[MP4版](docs/demo/generation.mp4)もあります。
+生成中の画面です（約20秒。この録画だけは英語UIで撮影しています）。[MP4版](docs/demo/generation.mp4)もあります。
 
 ![生成中のComfyUI画面を撮ったアニメーション](docs/demo/generation.gif)
 
@@ -234,13 +234,15 @@ seed `274968494187645` も固定済みなので、実行するだけで例を再
 | ② 水中 | 深海の女王のように水が渦を巻く | 274968494187645 |
 | ③ 雨 | 豪雨に打たれる | 73346377262621 |
 
+**炎と雨を再現するには**: 同梱の固定seedワークフローは水中版だけです。`qwen21_fast_edit` を開いて `seed` に上の値を入れ、**生成後の制御（control after generate）を `fixed`** にして実行すると同じ絵になります（`randomize` のままだと毎回変わります）。
+
 #### 元画像
 
 ![元画像](docs/demo/source.png)
 
 #### ① 炎
 
-![① 炎](docs/demo/fire.png)
+![① 炎](docs/demo/fire.jpg)
 
 <details>
 <summary>炎のプロンプト全文</summary>
@@ -255,7 +257,7 @@ Add vivid fire surrounding her body, sleeves, skirt, and the air around her, wit
 
 #### ② 水中
 
-![② 水中](docs/demo/underwater.png)
+![② 水中](docs/demo/underwater.jpg)
 
 <details>
 <summary>海のプロンプト全文</summary>
@@ -268,7 +270,7 @@ Edit the reference image: transform the character into a dramatic deep-sea empre
 
 #### ③ 雨
 
-![③ 雨](docs/demo/rain.png)
+![③ 雨](docs/demo/rain.jpg)
 
 <details>
 <summary>雨のプロンプト全文</summary>

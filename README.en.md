@@ -1,17 +1,17 @@
 **Japanese → [README.md](README.md)**
 
-# Running Qwen-Image-2.1 on a 12GB GPU with ComfyUI (a beginner's notes)
+# Running Qwen-Image-2.1 on a 12GB GPU with ComfyUI (notes from a beginner)
 
-![the same reference image turned into 3 scenes](docs/collage_en.png)
+![Three scenes made by editing one reference image](docs/collage_en.png)
 
-*Three scenes made by editing the same source image.*
+*The same source image (top left) and 3 edits of it: fire, underwater, rain.*
 
-**About the source image:** It was generated separately with AI, based on the “DeepSeek girl” meme.
+**About the source image:** It was generated separately from this demo, with AI, based on the “DeepSeek girl” meme.
 It is not an unauthorized use of an illustrator's existing artwork.
 
 > [!NOTE]
-> **These are a beginner's notes.** I wrote down the steps that worked on my own PC.
-> I hope they help others trying the same thing, but **I cannot guarantee they will work elsewhere**.
+> **These are notes from a beginner.** I wrote down the steps that worked on my own PC.
+> I hope they help others trying the same thing, but **I cannot guarantee they will work for you**.
 > If you spot an issue, tell me on X at [@\_ryu15\_](https://x.com/_ryu15_) or in a repository issue.
 
 Whether you already use ComfyUI or are installing it now, this guide adds **one node** for image generation and editing.
@@ -21,7 +21,7 @@ The official quantized weights take about 17GB.
 On my 12GB RTX 4070, a 1024×1024 image took about 10 seconds and a 2048×2048 image about 90 seconds.
 
 > [!WARNING]
-> **These instructions assume Linux (verified on Ubuntu 24.04).** Windows / macOS need a different route.
+> **These instructions assume Linux (verified on Ubuntu 24.04).** Windows / macOS will not work as-is.
 > See [Requirements](#requirements) and [10-3. OS notes](TECHNICAL.en.md#10-3-os-notes).
 
 ## Table of contents
@@ -42,10 +42,10 @@ On my 12GB RTX 4070, a 1024×1024 image took about 10 seconds and a 2048×2048 i
 
 ## Requirements
 
-| Item | Verified / expected here |
+| Item | Conditions verified in this repository |
 |---|---|
 | OS | **Linux** (verified on Ubuntu 24.04) |
-| GPU | Measured on an **RTX 4070 12GB**. A fresh install needs an NVIDIA driver and `nvidia-smi`. This does not claim that 12GB is a universal minimum |
+| GPU | Measured on an **RTX 4070 12GB**. A fresh install needs an NVIDIA driver (**580 or newer**, because `--with-comfyui` installs CUDA 13 builds of PyTorch) and `nvidia-smi`. This is not a claim that 12GB is a universal minimum |
 | ComfyUI | **0.37 or newer** if you already have it (`TextEncodeQwenImage21` is required). The script fetches ComfyUI if you do not |
 | Python | `python3` **3.10 or newer**. A fresh install also needs `venv` |
 | Git | The `git` command is required |
@@ -97,7 +97,7 @@ On Ubuntu-family Linux with an NVIDIA GPU, install ComfyUI and this project toge
 ./install.sh --with-comfyui             # install ComfyUI, its environment, weights, and node
 ```
 
-If `~/ComfyUI` already exists, use A above. B will not overwrite an existing folder.
+If `~/ComfyUI` already exists, use A above. B stops with an error instead of touching an existing folder.
 If a download is interrupted, rerun the same command.
 
 When installation finishes, start ComfyUI in a **second terminal**:
@@ -107,7 +107,7 @@ cd ~/ComfyUI
 .venv/bin/python main.py
 ```
 
-Both A and B place the three weight files, the custom node, three workflows, and the demo source image.
+Both A and B install the three weight files, the custom node, three workflows, and the demo source image into ComfyUI.
 Once ComfyUI starts, return to the first terminal (in this repository) for the next step.
 
 ### 1-2. Verify
@@ -144,7 +144,7 @@ For a quick check of the ComfyUI interface, open and run the **fixed-seed underw
 The editing examples and their settings are explained separately in [3. Editing examples and settings](#3-editing-examples-and-settings).
 
 1. Open <http://127.0.0.1:8188> in your browser.
-2. Click **Workflows** in the left sidebar.
+2. Click the **Workflows** icon on the left edge of the screen.
 3. Under **Browse**, choose `qwen21_fast_edit_underwater_fixed`.
 4. Click the blue **Run** button at the top. The result appears in **Save Image** on the right.
 
@@ -158,11 +158,11 @@ This short recording shows those exact clicks. Follow the yellow cursor ([MP4 ve
 | What you want to do | Workflow to open |
 |---|---|
 | Generate from text | `qwen21_fast_t2i` — write a prompt, then run |
-| Make a different underwater image each time | `qwen21_fast_edit` — random seed |
-| Reproduce the underwater image in the video | `qwen21_fast_edit_underwater_fixed` — seed `274968494187645` is fixed |
+| Make a different underwater girl from the source image each time | `qwen21_fast_edit` — random seed |
+| Reproduce the girl from the video | `qwen21_fast_edit_underwater_fixed` — seed `274968494187645` is fixed |
 
 Both editing workflows already include the girl as the source and the underwater prompt.
-To use your own image, select it in **Load Image** on the left.
+To use your own image, choose it in the **Load Image** node on the left (click **choose file to upload**, or drag an image file onto the node).
 A second run of the fixed workflow with identical settings shows the cached result.
 
 <details>
@@ -178,7 +178,7 @@ After you enter a prompt and run it, the result appears on the right.
 
 Here is the image generated by that run:
 
-![A teapot generated from the text prompt](docs/demo/text_to_image.png)
+![A teapot generated from the text prompt](docs/demo/text_to_image.jpg)
 
 Here is the generation in progress (about 20 seconds). An [MP4 version](docs/demo/generation.mp4) is available too.
 
@@ -190,7 +190,7 @@ For port changes or access from another device on your LAN, see [10-5. Ports and
 
 ## 2. Let an AI agent do the setup
 
-If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, copy and give it the instructions below.
+If you are using ChatGPT, Claude, a local agent, or another tool that can operate your machine, copy the instructions below and paste them into it.
 
 ```
 I want to set up ComfyUI and Qwen-Image-2.1 using the steps in this repository.
@@ -229,10 +229,12 @@ LoadImage on the left supplies the source; `prompt` in the middle describes the 
 
 | | scene | seed |
 |---|---|---|
-| original | a plain-background character illustration (1672x941) | — |
+| original | a character illustration on a white background (1672x941) | — |
 | 1 fire | clothes and surroundings engulfed in flames | 1030019892377945 |
-| 2 underwater | water spiralling around her like a deep-sea empress | 274968494187645 |
+| 2 underwater | water spiraling around her like a deep-sea empress | 274968494187645 |
 | 3 rain | struck by torrential rain | 73346377262621 |
+
+**To reproduce the fire and rain scenes**: only the underwater demo ships as a fixed-seed workflow. Open `qwen21_fast_edit`, put the value above into `seed`, set **control after generate to `fixed`** and run it - with `randomize` you get a different image every time.
 
 #### Original image
 
@@ -240,7 +242,7 @@ LoadImage on the left supplies the source; `prompt` in the middle describes the 
 
 #### 1. Fire
 
-![1. Fire result](docs/demo/fire.png)
+![1. Fire result](docs/demo/fire.jpg)
 
 <details>
 <summary>Full fire prompt</summary>
@@ -255,7 +257,7 @@ Add vivid fire surrounding her body, sleeves, skirt, and the air around her, wit
 
 #### 2. Underwater
 
-![2. Underwater result](docs/demo/underwater.png)
+![2. Underwater result](docs/demo/underwater.jpg)
 
 <details>
 <summary>Full underwater prompt</summary>
@@ -268,7 +270,7 @@ Edit the reference image: transform the character into a dramatic deep-sea empre
 
 #### 3. Rain
 
-![3. Rain result](docs/demo/rain.png)
+![3. Rain result](docs/demo/rain.jpg)
 
 <details>
 <summary>Full rain prompt</summary>
@@ -283,7 +285,7 @@ Make the final result highly detailed, emotional, cinematic, and visually striki
 
 </details>
 
-**Settings**: the reference is 1672x941 and the output is **1376x768** (same aspect ratio, 1 MP of area).
+**Settings (common to all three)**: the reference is 1672x941 and the output is **1376x768** (same aspect ratio, 1 MP of area).
 `aspect_ratio` 1:1 / `megapixels` 1 / `steps` 0 (auto = 12 steps) / `reference_fit` `match output` /
 cfg 1.0 / euler simple. About **20 s per image** (RTX 4070 12GB, model resident; → [6. Measured numbers](TECHNICAL.en.md#6-measured-numbers)).
 

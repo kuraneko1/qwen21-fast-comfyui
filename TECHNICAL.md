@@ -167,16 +167,17 @@ euler/simple が公式の設定で、それ以外にすると遅くなるだけ�
 | 1024x1024を3枚まとめて（`count=3`） | 24.2 秒（1枚あたり約8秒） |
 | 参照画像1枚で編集（1024x1024・12ステップ） | 17.0 秒 |
 | 参照画像3枚で編集 | 36.4 秒 |
+| 参照画像1枚で編集（デモの条件: 参照1672x941 → 1376x768・12ステップ） | 約20秒（11回の中央値19.8秒） |
 
 - 1ステップあたり: 1MPで約0.34秒、4MPで約4.3秒
-- 固定費（テキストの読み取り・VAEのデコード・モデルの入れ替え）が約5秒
+- 固定費（テキストの読み取り・VAEのデコード・モデルの入れ替え）が約5.5秒
 - 重み17GBは12GBのVRAMに載りきらないので、ComfyUIが自動で必要な部分を入れ替えます。だから再起動直後だけ
   数秒余分にかかり、`count=3` は3回別々に走らせるより1枚あたり安くなります
 - 測った生のログ: `MEASUREMENTS.md`
 
 ## 7. 品質を上げたいとき
 
-- **ステップ数を増やす**（`steps` を 0 → 20〜30 にする）。時間はステップ数にほぼ比例して伸びます（1MPで1ステップ約0.34秒＋固定費が約5秒。12→25ステップなら×1.5）。
+- **ステップ数を増やす**（`steps` を 0 → 20〜30 にする）。時間はステップ数にほぼ比例して伸びます（1MPで1ステップ約0.34秒＋固定費が約5.5秒。12→25ステップなら×1.5）。
   12ステップでも十分きれいですが、細部や文字は増やすほど安定します
 - **解像度を上げる**（`megapixels` を 1 → 4 に）。構図が破綻しにくく細部も増えますが、時間は約9倍（9.6→90.5秒、既定ステップ）になります
 - **seedを変えて選ぶ**。`count` を 3〜4 にすると一度に何枚も出せるので、選ぶのが楽です（1枚あたりは少し安くなります）
@@ -207,6 +208,8 @@ euler/simple が公式の設定で、それ以外にすると遅くなるだけ�
 | `aimdo memory compile error` | `QwenImage21Cache`（prefix KVキャッシュ）のint8/int4がこの環境では動かない | `default` のまま使う（ノードは公開していません） |
 | 参照画像3〜4枚で失敗する／遅すぎる | 参照1枚で約4096トークン消費するため | 枚数を減らす／`megapixels` を下げる／参照を先に縮小してから入力する（大きい参照＋`keep original size` が最も重い） |
 | GGUFのローダで "unknown model architecture" | このモデルのGGUF再パックはメタデータが欠落している | ここではGGUFを使わず、int8_convrotのsafetensorsを使う |
+| ComfyUIが古いと言われる（`TextEncodeQwenImage21` が無い） | このノードが必要とする標準ノードは ComfyUI 0.37 以降にしかありません | `cd ~/ComfyUI && git pull && .venv/bin/pip install -r requirements.txt` を実行して再起動する |
+| テストで `ConnectionRefusedError` / `URLError` が出る | ComfyUIが起動していない、またはポートが違う | ComfyUIを起動してから再実行する。ポートを変えている場合は `COMFY_HOST` で指定する（→ [10-5](#10-5-ポートと接続先)） |
 
 ## 9. 落とし穴（全部実際に踏みました）
 
@@ -215,8 +218,8 @@ euler/simple が公式の設定で、それ以外にすると遅くなるだけ�
    ComfyUI-GGUFは推測経路に落ちて `Unknown model architecture!` になります（`tools/convert.py` に `qwen_image`
    のシグネチャを足せば読めます）。読ませたうえで同一プロンプト・同一seed・各6回で測ると、1024x1024/12ステップは
    **int8 11.8秒 対 GGUF 24.3秒（中央値＝約2.0倍）**、サンプラー自身の進捗では **0.52 対 1.38 秒/step（約2.6倍）**
-   でした。ComfyUIがint8カーネルを使えず毎回展開するためで、両者共通の固定費（約6秒）が12ステップでは比率を
-   薄めます。※**テキストエンコーダのGGUFは正しいメタデータ**（`general.architecture=qwen3vl`、kv 45件）を持っており、
+   でした。ComfyUIがint8カーネルを使えず毎回展開するためで、両者共通の固定費（約6秒。他の作業と同時に測ったため、静かなときの約5.5秒より少し大きい）が12ステップでは比率を
+   薄めます。※**テキストエンコーダのGGUFは正しいメタデータ**（`general.architecture=qwen3vl`、kv 42件）を持っており、
    こちらが原因ではありません（DiT側の話です）。
    参考: **ベンダー自身のアプリ（Unsloth Desktop）でも同じGGUFを実測**しました。12GBではint8経路が選べず
    （全部を常駐させる必要があり34.9GB要求・しかもオフロード不可）、GGUFのみで**29.5秒**でした
@@ -283,7 +286,7 @@ cp /tmp/qwen21-fast-comfyui/workflows/*.json ~/ComfyUI/user/default/workflows/
 cp /tmp/qwen21-fast-comfyui/docs/demo/source.png ~/ComfyUI/input/qwen21_demo_source.png
 ```
 
-（このリポジトリを `custom_nodes/` の中に直接cloneしてもOKです。その場合もワークフローと元画像は上の場所へコピーしてください）
+（このリポジトリを `custom_nodes/` の中に直接cloneしても**動きません**。ComfyUIは `custom_nodes/<フォルダ名>/__init__.py` を読み込む仕様で、このリポジトリの直下には `__init__.py` がないためです。上の `cp -r .../custom_nodes/qwen21_fast ~/ComfyUI/custom_nodes/` のように、**ノードのフォルダをコピー**してください）
 
 **B4. ComfyUIを再起動** — 動いているComfyUIは新しいノードに気づきません。必ず再起動してください。
 
@@ -386,7 +389,7 @@ python main.py --port 8188 --listen 127.0.0.1
 3. **実機で生成テストまでやらせる**（`test_qwen21.py` のような検証スクリプトも一緒に作らせると、
    あとで自分で壊していないか確認できます）
 
-このリポジトリの `custom_nodes/qwen21_fast/nodes.py` は170行ほどです。改造したいときは、このファイルをAIに渡して
+このリポジトリの `custom_nodes/qwen21_fast/nodes.py` は約244行（空行とコメントを除くと約179行）です。改造したいときは、このファイルをAIに渡して
 「ここをこう変えて」と頼むのが早いです。
 
 ## 12. ファイル構成
@@ -407,9 +410,9 @@ docs/pipeline_ja.png             §4の構成図（HTMLから生成したPNG）
 docs/ui_workflow_ja.png          ワークフローを開いた画面
 docs/ui_used_ja.png              実行して結果が出ている画面（ノードを実際に使っている状態）
 docs/demo/source.png             編集デモの元画像（インストール時にComfyUIへコピー）
-docs/demo/fire.png / underwater.png / rain.png   編集結果と同名のプロンプト.txt
+docs/demo/fire.jpg / underwater.jpg / rain.jpg   編集結果と同名のプロンプト.txt
 docs/demo/edit_workflow_ja.png   元画像から水中の結果を出した画面
-docs/demo/text_to_image.png      テキストから実際に生成した画像
+docs/demo/text_to_image.jpg      テキストから実際に生成した画像
 docs/demo/generation.gif / .mp4  生成中の画面（アニメーションと動画）
 docs/demo/open_workflow_ja.gif / .mp4  ワークフロー選択から実行までの短い動画
 docs/diagram.html / .en.html     概念図の元データ（HTML。日本語版と英語版）
@@ -443,7 +446,7 @@ docs/capture_ui.py               スクリーンショットを撮るスクリ�
 
 同じリポジトリには、量子化なしの `qwen_image_2.1_bf16.safetensors`（14.2 GB）、
 `qwen3vl_8b_bf16.safetensors`（17.5 GB）、`qwen3vl_8b_w4a8.safetensors`（6.3 GB）、
-プロンプト書き換え用の `qwen3.5_9b_qwen_image_2.1_pe_t2i` / `..._pe_i2i`（各9.5 GB）もあります。
+プロンプト書き換え用の `qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors` / `..._pe_i2i.int8_convrot.safetensors`（各9.5 GB）もあります。
 
 - モデルカード（本家）: <https://huggingface.co/Qwen/Qwen-Image-2.1>
 - コードとライセンス: <https://github.com/QwenLM/Qwen-Image-2.1>

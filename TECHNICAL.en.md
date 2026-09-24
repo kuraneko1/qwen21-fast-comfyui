@@ -13,15 +13,15 @@ This file contains the technical material separated from the normal-use README: 
   - [4-1. What the weight files are, and where to get them](#4-1-what-the-weight-files-are-and-where-to-get-them)
   - [4-2. What each piece does](#4-2-what-each-piece-does)
   - [4-3. Exact model names and quantization](#4-3-exact-model-names-and-quantization)
-  - [4-4. Editing with reference images](#4-4-editing-with-reference-images)
+  - [4-4. Editing with reference images](#4-4-editing-with-reference-images-up-to-4-in-this-node)
 - [5. Inside the node](#5-inside-the-node)
 - [6. Measured numbers](#6-measured-numbers)
 - [7. When you want better quality](#7-when-you-want-better-quality)
 - [8. Troubleshooting](#8-troubleshooting)
-- [9. Things that will bite you](#9-things-that-will-bite-you)
+- [9. Things that will bite you (I hit every one of these)](#9-things-that-will-bite-you-i-hit-every-one-of-these)
 - [10. Manual installation and configuration](#10-manual-installation-and-configuration)
 - [11. Development and customization](#11-development-and-customization)
-- [12. Files](#12-files)
+- [12. File layout](#12-file-layout)
 - [13. License](#13-license)
 - [14. Sources](#14-sources)
 
@@ -110,7 +110,7 @@ quantized for ComfyUI**.
   you are thinking about commercial use).
   - Original: <https://github.com/QwenLM/Qwen-Image-2.1/blob/main/LICENSE>
 
-### 4-4. Editing with reference images
+### 4-4. Editing with reference images (up to 4 in this node)
 
 The node has inputs named `image_1` through `image_4`, and you can pass it **up to 4 reference images in this node**.
 Connect a reference image and it stops being "generate from text" and becomes "edit the reference image"
@@ -157,7 +157,7 @@ Both bundled editing workflows load the source image that `install.sh` places at
 
 **I deliberately do not expose cfg (how closely it follows the prompt) or the sampler.** For this model
 cfg 1.0 and euler/simple are the official settings, and anything else only makes it slower with no upside
-(→ [9. Things that will bite you](#9-things-that-will-bite-you)). There is no
+(→ [9. Things that will bite you](#9-things-that-will-bite-you-i-hit-every-one-of-these)). There is no
 negative prompt field either: at cfg 1.0 ComfyUI skips the unconditional pass entirely
 (`math.isclose(cond_scale, 1.0)` in `comfy/samplers.py`), so anything typed there would do nothing.
 
@@ -175,17 +175,18 @@ compared with the same prompt and the same seed.
 | 1024x1024, 3 images in one go (`count=3`) | 24.2 s (about 8 s per image) |
 | edit with 1 reference image (1024x1024, 12 steps) | 17.0 s |
 | edit with 3 reference images | 36.4 s |
+| edit with 1 reference (the demo: 1672x941 reference → 1376x768, 12 steps) | about 20 s (median of 11 runs: 19.8 s) |
 
 - Per step: about 0.34 s at 1MP, about 4.3 s at 4MP
-- The fixed cost (text encoding, VAE decoding, swapping models) is about 5 s
+- The fixed cost (text encoding, VAE decoding, swapping models) is about 5.5 s
 - The 17GB of weights do not fit entirely in 12GB of VRAM, so ComfyUI swaps in the parts it needs
   automatically. That is why only right after a restart it takes a few extra seconds, and why `count=3`
   is cheaper per image than running three separate times
-- The raw log I measured: `MEASUREMENTS.md`
+- The raw log I measured (Japanese only): `MEASUREMENTS.md`
 
 ## 7. When you want better quality
 
-- **Increase the step count** (`steps` from 0 → 20–30). The time grows about proportionally with the step count (about 0.34 s per step at 1MP, plus roughly 5 s of fixed cost; 12 → 25 steps is x1.5).
+- **Increase the step count** (`steps` from 0 → 20–30). The time grows about proportionally with the step count (about 0.34 s per step at 1MP, plus roughly 5.5 s of fixed cost; 12 → 25 steps is ×1.5).
   12 steps is plenty clean already, but the more you add the more stable the fine details and text become
 - **Increase the resolution** (`megapixels` from 1 → 4). The composition is less likely to fall apart and
   there is more detail, but the time becomes about 9 times longer (9.6 → 90.5 s at the default steps)
@@ -220,8 +221,10 @@ A rough guide to what changes what:
 | `aimdo memory compile error` | `QwenImage21Cache` (the prefix KV cache) int8/int4 does not work in this environment | Leave it at `default` (the node does not expose it) |
 | It fails or is far too slow with 3–4 reference images | Each reference consumes about 4096 tokens | Use fewer images / lower `megapixels` / shrink the references before feeding them in (a big reference with `keep original size` is the heaviest case) |
 | "unknown model architecture" in a GGUF loader | GGUF re-packs of this model are missing metadata | Do not use GGUF here; use the int8_convrot safetensors |
+| It says ComfyUI is too old (no `TextEncodeQwenImage21`) | The stock node this one needs only exists in ComfyUI 0.37 or newer | Run `cd ~/ComfyUI && git pull && .venv/bin/pip install -r requirements.txt`, then restart |
+| A test fails with `ConnectionRefusedError` / `URLError` | ComfyUI is not running, or the port differs | Start ComfyUI and retry; if you changed the port, pass it with `COMFY_HOST` (see [10-5](#10-5-ports-and-connection)) |
 
-## 9. Things that will bite you
+## 9. Things that will bite you (I hit every one of these)
 
 1. **Raising cfg above 1.0 doubles the computation.** The official setting is 1.0. Most of the sample code
    out there uses something like 6.0, and this was the biggest trap of all.
@@ -230,9 +233,9 @@ A rough guide to what changes what:
    (adding a `qwen_image` signature to `tools/convert.py` makes it load). Once it loads, six runs per arm with
    the same prompt and seed give **11.8 s (int8) vs 24.3 s (GGUF) at 1024x1024 / 12 steps - a median ratio of
    about 2.0x**, and the sampler's own progress bar shows **0.52 vs 1.38 s/step (about 2.6x)**: ComfyUI cannot
-   use its int8 kernels and dequantizes every step, while the fixed cost both arms pay (~6 s) dilutes the ratio
+   use its int8 kernels and dequantizes every step, while the fixed cost both arms pay (~6 s here, a little above the ~5.5 s measured on a quiet machine, because this comparison ran alongside other work) dilutes the ratio
    at 12 steps. Note that the **text encoder GGUF does carry correct metadata**
-   (`general.architecture=qwen3vl`, 45 keys) - it is not the cause; the DiT is.
+   (`general.architecture=qwen3vl`, 42 keys) - it is not the cause; the DiT is.
    For reference, the **vendor's own app (Unsloth Desktop) was measured with the same GGUF**: on 12 GB it
    cannot select the int8 path (it wants everything resident - 34.9 GB - and cannot offload it), so it runs
    GGUF only, at **29.5 s** (section 3-2 of [MEASUREMENTS.md](MEASUREMENTS.md)).
@@ -300,7 +303,7 @@ cp /tmp/qwen21-fast-comfyui/workflows/*.json ~/ComfyUI/user/default/workflows/
 cp /tmp/qwen21-fast-comfyui/docs/demo/source.png ~/ComfyUI/input/qwen21_demo_source.png
 ```
 
-(Cloning this repository directly inside `custom_nodes/` is fine too. You still need to copy the workflows and source image to the paths above.)
+(Cloning this repository directly inside `custom_nodes/` does **not** work: ComfyUI loads `custom_nodes/<folder>/__init__.py`, and there is no `__init__.py` at the top level of this repository. Copy the node folder itself, as in the `cp -r .../custom_nodes/qwen21_fast ~/ComfyUI/custom_nodes/` line above.)
 
 **B4. Restart ComfyUI** — a running ComfyUI will not notice the new node. Be sure to restart it.
 
@@ -406,10 +409,10 @@ way, you can have an AI write a node tailored to your environment. The three tip
 3. **Have it do a generation test on the real machine** (if you also have it write a verification script
    like `test_qwen21.py`, you can check later that you have not broken anything yourself)
 
-`custom_nodes/qwen21_fast/nodes.py` in this repository is about 170 lines. When you want to change
+`custom_nodes/qwen21_fast/nodes.py` in this repository is about 244 lines (about 179 without blank lines and comments). When you want to change
 something, the fastest way is to hand this file to an AI and ask it to "change this part like so".
 
-## 12. Files
+## 12. File layout
 
 ```
 install.sh                       optionally install ComfyUI, then place weights, node, and workflows
@@ -427,14 +430,14 @@ docs/pipeline_en.png             the diagram in section 4 (an HTML render)
 docs/ui_workflow_en.png          the ComfyUI screen with the workflow loaded
 docs/ui_used_en.png              the same screen after a run (the node actually in use)
 docs/demo/source.png             source image for editing (copied to ComfyUI during installation)
-docs/demo/fire.png / underwater.png / rain.png   edited results and matching prompt .txt files
+docs/demo/fire.jpg / underwater.jpg / rain.jpg   edited results and matching prompt .txt files
 docs/demo/edit_workflow_en.png   ComfyUI screen showing the source and underwater result
-docs/demo/text_to_image.png      image generated by the text-to-image workflow
+docs/demo/text_to_image.jpg      image generated by the text-to-image workflow
 docs/demo/generation.gif / .mp4  animation and video of generation in progress
 docs/demo/open_workflow_en.gif / .mp4  short guide from workflow selection to Run
 docs/diagram.html / .en.html     the diagram source (HTML, Japanese and English)
 docs/render_diagram.sh           renders the diagram to PNG (headless Chrome, 2x scale)
-docs/diagram-spec.md             the content spec for the diagram (no design brief)
+docs/diagram-spec.md             the content spec for the diagram (no design brief, Japanese only)
 docs/capture_ui.py               the script that takes the screenshot
 ```
 
@@ -464,7 +467,7 @@ change, so the original text is the only authority:
 
 The same repository also has the unquantized `qwen_image_2.1_bf16.safetensors` (14.2 GB),
 `qwen3vl_8b_bf16.safetensors` (17.5 GB), `qwen3vl_8b_w4a8.safetensors` (6.3 GB), and the prompt-rewriting
-`qwen3.5_9b_qwen_image_2.1_pe_t2i` / `..._pe_i2i` (9.5 GB each).
+`qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors` / `..._pe_i2i.int8_convrot.safetensors` (9.5 GB each).
 
 - Model card (upstream): <https://huggingface.co/Qwen/Qwen-Image-2.1>
 - Code and license: <https://github.com/QwenLM/Qwen-Image-2.1>
