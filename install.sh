@@ -27,20 +27,53 @@ VAE="vae/qwen_image_2.1_vae_bf16.safetensors"                      # 0.68 GB
 
 run() { echo "+ $*"; [ "$DRY" = 1 ] || "$@"; }
 
-place() {   # hardlink $1 into directory $2; copies instead across filesystems
-  src="$1"; dst="$2"
+place() {   # put $1 where ComfyUI looks ($2) without clobbering a file the user put there
+  src="$1"; dst="$2"; target="$dst/$(basename "$src")"
   if [ "$DRY" = 1 ]; then echo "+ ln -f $src $dst/   (copy if that fails)"; return 0; fi
   mkdir -p "$dst"
+  if [ -e "$target" ]; then
+    # Same size means it is already the right file (a previous run's hardlink, a symlink to the
+    # download, or the user's own copy), so leave it exactly as it is.
+    if [ "$(stat -c %s "$src" 2>/dev/null)" = "$(stat -c %s "$target" 2>/dev/null)" ]; then
+      echo "  = $(basename "$target") is already in place - leaving it alone"
+      return 0
+    fi
+    if [ -L "$target" ]; then
+      echo "  ! $target is a symlink to $(readlink "$target") with a different size - replacing the link"
+    else
+      echo "  ! $target exists and differs - keeping your file as $(basename "$target").bak"
+      cp -f "$target" "$target.bak"
+    fi
+  fi
   ln -f "$src" "$dst/" 2>/dev/null || {
     echo "  ! cannot hardlink (different filesystem?) - copying"
     cp -f "$src" "$dst/"
   }
 }
 
+install_file() {   # copy $1 over $2, keeping a modified $2 as .bak
+  src="$1"; dst="$2"
+  if [ "$DRY" = 1 ]; then echo "+ cp -f $src $dst"; return 0; fi
+  mkdir -p "$(dirname "$dst")"
+  if [ -e "$dst" ] && ! cmp -s "$src" "$dst"; then
+    echo "  ! $(basename "$dst") was changed - keeping your version as $(basename "$dst").bak"
+    cp -f "$dst" "$dst.bak"
+  fi
+  cp -f "$src" "$dst"
+}
+
 install_dir() {   # update shipped files without removing other files in $2
   src="$1"; dst="$2"
   run mkdir -p "$dst"
+  if [ "$DRY" != 1 ] && [ -f "$dst/nodes.py" ] && ! cmp -s "$src/nodes.py" "$dst/nodes.py"; then
+    echo "  ! $dst/nodes.py was changed - keeping your version as nodes.py.bak"
+    cp -f "$dst/nodes.py" "$dst/nodes.py.bak"
+  fi
   run cp -r "$src"/. "$dst"/
+  # a stale .pyc left over from the previous version would be loaded instead of the new source
+  if [ "$DRY" != 1 ]; then
+    find "$dst" -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+  fi
 }
 
 if [ "$WITH_COMFYUI" = 1 ]; then
@@ -66,7 +99,10 @@ if [ "$WITH_COMFYUI" = 1 ]; then
   venv_python="$COMFY/.venv/bin/python"
   if [ ! -x "$venv_python" ]; then run python3 -m venv "$COMFY/.venv"; fi
   run "$venv_python" -m pip install --upgrade pip
-  run "$venv_python" -m pip install torch torchvision torchaudio \
+  # Pinned to the versions this repository was measured with (the +cu130 builds): with only
+  # --extra-index-url, pip may pick a different build from PyPI instead.
+  run "$venv_python" -m pip install \
+    "torch==2.14.0+cu130" "torchvision==0.29.0+cu130" "torchaudio==2.11.0+cu130" \
     --extra-index-url https://download.pytorch.org/whl/cu130
   run "$venv_python" -m pip install -r "$COMFY/requirements.txt"
   run "$venv_python" -m pip install --upgrade huggingface_hub
@@ -117,8 +153,10 @@ echo "== 3/4 custom node + workflows + demo image"
 here="$(cd "$(dirname "$0")" && pwd)"
 run mkdir -p "$COMFY/custom_nodes" "$COMFY/user/default/workflows" "$COMFY/input"
 install_dir "$here/custom_nodes/qwen21_fast" "$COMFY/custom_nodes/qwen21_fast"
-run cp -f "$here"/workflows/*.json "$COMFY/user/default/workflows/"
-run cp -f "$here/docs/demo/source.png" "$COMFY/input/qwen21_demo_source.png"
+for wf in "$here"/workflows/*.json; do
+  install_file "$wf" "$COMFY/user/default/workflows/$(basename "$wf")"
+done
+install_file "$here/docs/demo/source.png" "$COMFY/input/qwen21_demo_source.png"
 
 echo "== 4/4 start or restart ComfyUI"
 # `|| true` keeps a no-match case non-fatal, and nothing here pipes into a consumer that stops
