@@ -89,7 +89,10 @@ fi
 
 cat <<'EOF'
 
-Done. In the ComfyUI UI open Workflows -> "qwen21_fast_t2i" (or ..._edit), type a prompt, run.
+Done. In the ComfyUI UI, open one of these workflows and press Run:
+  qwen21_fast_t2i                      text to image
+  qwen21_fast_edit                     source to underwater (random seed)
+  qwen21_fast_edit_underwater_fixed    source to underwater (fixed seed)
 
   first image, 1024x1024, 12 steps   ~10-15 s   (RTX 4070 12 GB)
   2048x2048 (4 MP), 20 steps         ~90 s

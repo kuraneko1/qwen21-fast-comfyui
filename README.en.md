@@ -116,9 +116,10 @@ edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size
 Open ComfyUI and choose from **Workflows**:
 
 - **Text-to-image:** open `qwen21_fast_t2i`, write a prompt, and press Run.
-- **Image editing:** open `qwen21_fast_edit` and press Run. The source image, underwater prompt, and seed are already set. To use your own image, select it in the LoadImage node.
+- **Image editing (underwater, new result each run):** open `qwen21_fast_edit` and press Run. It includes the girl as the source and the underwater prompt. Its seed control is `randomize`.
+- **Image editing (reproduce the underwater example):** open `qwen21_fast_edit_underwater_fixed` and press Run. It uses the same source and prompt, with seed `274968494187645` set to `fixed`.
 
-A second edit with identical settings uses the cache. Switch the seed control from `fixed` to `randomize` to try a new result.
+To use your own source, select it in LoadImage. A second run of the fixed-seed workflow with identical settings shows the cached result.
 
 The default UI is <http://127.0.0.1:8188>.
 
@@ -165,7 +166,7 @@ Connect a reference image to `image_1` and you are in edit mode. This is the sam
 character's identity, outfit and art style kept while only the surroundings change (the collage at the top
 shows the original plus the 3 edits).
 
-Open **Workflows → `qwen21_fast_edit`** to load the source image and underwater prompt shown below, then press Run. The central "Qwen 2.1 Fast Generate" node edits when `image_1` is connected; without a reference, it generates from text.
+Open **Workflows → `qwen21_fast_edit_underwater_fixed`** to load the source image and underwater prompt shown below. Seed `274968494187645` is fixed, so press Run to reproduce the example. For a new result each time, open `qwen21_fast_edit`. The central "Qwen 2.1 Fast Generate" node edits when `image_1` is connected; without a reference, it generates from text.
 
 ![ComfyUI editing workflow showing the source and underwater result](docs/demo/edit_workflow_en.png)
 
@@ -363,7 +364,7 @@ setting `reference_fit` to `keep original size` uses the reference image without
 time only when the reference is larger than the output (at 1024x1024 the two modes measure the same,
 15.9 s vs 16.7 s).
 
-The bundled `workflows/qwen21_fast_edit.json` loads the source image that `install.sh` places at
+Both bundled editing workflows load the source image that `install.sh` places at
 `ComfyUI/input/qwen21_demo_source.png`. To use your own image, select it in the LoadImage node.
 
 ## 5. Inside the node
@@ -373,7 +374,7 @@ The bundled `workflows/qwen21_fast_edit.json` loads the source image that `insta
 | input | `prompt` | describe the new image, or, when editing, what to change and what to keep |
 | input | `aspect_ratio` × `megapixels` | aspect ratio (1:1 / 4:3 / 3:4 / 3:2 / 2:3 / 16:9 / 9:16) and size (0.5 / 1 / 2 / 4 MP). **1MP = 1024x1024, 4MP = 2048x2048**. With a reference connected the output takes the reference's aspect ratio, so `aspect_ratio` is ignored; `megapixels` then fixes the **area** (a 16:9 reference at `megapixels=2` comes out 1920x1088 - not 1440 wide, but about the same area as 1440x1440) |
 | input | `steps` | 0 = automatic (**12 steps when the long side is 1024 px or less**, 20 above that. 1:1 at 1MP takes 12; 4:3 and 16:9 at 1MP have a 1184 / 1376 px long side, so they take 20) |
-| input | `seed` | the random seed. A new node and the text-to-image workflow use `randomize` for a new image each run. The editing demo alone uses `fixed` so the underwater example is reproducible. Switch it to `randomize` to try other results |
+| input | `seed` | the random seed. Text-to-image and `qwen21_fast_edit` use `randomize` for a new image each run. Only `qwen21_fast_edit_underwater_fixed` uses `fixed` (`274968494187645`) to reproduce the underwater example |
 | input | `count` | how many to make at once (seed, seed+1, …). The results come back together |
 | input | `reference_fit` | how reference images are handled (`match output` = match the output size / `keep original size` = keep the reference's original size. The latter is only lighter when the reference is bigger than the output; with a 1024x1024 reference the two measure the same, 15.9 s vs 16.7 s) |
 | input | `unet_name` / `clip_name` / `vae_name` | which of the three weight files (the default is the three above) |
@@ -580,7 +581,7 @@ UI appears (`127.0.0.1` means "this very PC you are using", so you open it in a 
 ```
 ComfyUI UI      http://127.0.0.1:8188     ← open this in a browser
                 ├── the node list: "Qwen 2.1 Fast Generate"
-                ├── the workflows: Workflows ▸ qwen21_fast_t2i / qwen21_fast_edit
+                ├── the workflows: Workflows ▸ qwen21_fast_t2i / qwen21_fast_edit / qwen21_fast_edit_underwater_fixed
                 └── the API the scripts use: http://127.0.0.1:8188/prompt, /history, /object_info
 ```
 
@@ -638,7 +639,8 @@ check.sh                         syntax checks (bash / python / workflow JSON)
 MEASUREMENTS.md                  the raw measurement log
 custom_nodes/qwen21_fast/        the node itself (a combination of ComfyUI's standard nodes)
 workflows/qwen21_fast_t2i.json   the workflow that generates from a prompt
-workflows/qwen21_fast_edit.json  the edit workflow with a reference image connected
+workflows/qwen21_fast_edit.json  source-to-underwater editing (random seed)
+workflows/qwen21_fast_edit_underwater_fixed.json  source-to-underwater editing (fixed seed)
 make_qwen21_workflows.py         rebuild the workflows from the node's specification
 test_qwen21.py                   verification (sizes, count, edit)
 test_qwen21_edit.py              a one-off edit from the command line
@@ -661,7 +663,7 @@ The diagrams and screenshots can be regenerated: `./docs/render_diagram.sh` redr
 `python3 docs/capture_ui.py docs --lang en --run` screenshots a running ComfyUI with the workflow loaded
 (`ui_empty_en.png` as it opens, `ui_workflow_en.png` once the workflow is loaded, and with `--run` it
 generates one image and also writes `ui_used_en.png`; `--lang ja` for the Japanese UI). The editing
-demo screen was captured with `--workflow qwen21_fast_edit --run`.
+demo screen was captured with `--workflow qwen21_fast_edit_underwater_fixed --run`.
 
 ## 13. License
 

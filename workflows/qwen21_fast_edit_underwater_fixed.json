@@ -101,8 +101,8 @@
     "1:1",
     "1",
     0,
-    0,
-    "randomize",
+    274968494187645,
+    "fixed",
     1,
     "match output",
     "qwen_image_2.1_int8_convrot.safetensors",
@@ -114,8 +114,8 @@
     "aspect_ratio": "1:1",
     "megapixels": "1",
     "steps": 0,
-    "seed": 0,
-    "control_after_generate": "randomize",
+    "seed": 274968494187645,
+    "control_after_generate": "fixed",
     "count": 1,
     "reference_fit": "match output",
     "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
@@ -149,7 +149,7 @@
     "Node name for S&R": "SaveImage"
    },
    "widgets_values": [
-    "qwen21_fast_edit"
+    "qwen21_fast_edit_underwater_fixed"
    ]
   }
  ],

@@ -195,5 +195,6 @@ python3 test_qwen21.py     # 起動中のComfyUIに対し 5ケースを実行（
 python3 test_qwen21_edit.py <参照.png> "<指示文>" [メガピクセル] [keep]   # 任意画像の編集を1回だけ
 ```
 
-ワークフローを開いて手で回す場合は `workflows/qwen21_fast_t2i.json` /
-`workflows/qwen21_fast_edit.json` を `~/ComfyUI/user/default/workflows/` にコピーする。
+ワークフローを開いて手で回す場合は `workflows/` 内の3つのJSONを
+`~/ComfyUI/user/default/workflows/` にコピーする。画像編集の2つは
+`docs/demo/source.png` を `~/ComfyUI/input/qwen21_demo_source.png` にコピーして使う。

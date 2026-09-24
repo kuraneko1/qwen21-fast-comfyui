@@ -114,9 +114,10 @@ edit_keep_size     success  exec=  16.7s wall=  17.0s qwen21_test_edit_keep_size
 ComfyUIを開き、**Workflows** から選びます。
 
 - **テキストから生成:** `qwen21_fast_t2i` を開き、プロンプトを書いて Run。
-- **画像編集:** `qwen21_fast_edit` を開いて Run。元画像・水中のプロンプト・seedは設定済みです。自分の画像を使うときは、LoadImageノードで選び直します。
+- **画像編集（水中・毎回違う結果）:** `qwen21_fast_edit` を開いて Run。女の子の元画像と水中のプロンプトが入っています。seed は `randomize` です。
+- **画像編集（水中・結果を再現）:** `qwen21_fast_edit_underwater_fixed` を開いて Run。同じ元画像・プロンプトで、seed `274968494187645` を `fixed` にしています。
 
-同じ編集をもう一度実行するとキャッシュされます。別の絵を試すときは seed の `fixed` を `randomize` に変えてください。
+自分の画像を使うときは LoadImage で選び直します。固定 seed のワークフローを同じ設定で再実行すると、キャッシュされた結果が表示されます。
 
 既定のUIは <http://127.0.0.1:8188> です。
 
@@ -162,7 +163,7 @@ ComfyUIのパスが違う場合は install.sh に COMFY=/path/to/ComfyUI を付�
 参照画像を `image_1` に繋ぐと編集モードになります。**同じ1枚から、キャラクターの同一性・服装・画風を保ったまま
 周囲のシーンだけを変える**例です（冒頭のコラージュは元画像＋編集後の3枚）。
 
-**Workflows → `qwen21_fast_edit`** を開くと、下の元画像と水中のプロンプトが入っています。Run を押すだけで試せます。中央の「Qwen 2.1 Fast Generate」ノードは、`image_1` に画像が繋がっていると編集、繋がっていないとテキストから生成します。
+**Workflows → `qwen21_fast_edit_underwater_fixed`** を開くと、下の元画像と水中のプロンプトが入っています。seed `274968494187645` も固定済みなので、Run を押すだけで例を再現できます。毎回違う結果を見たいときは `qwen21_fast_edit` を開きます。中央の「Qwen 2.1 Fast Generate」ノードは、`image_1` に画像が繋がっていると編集、繋がっていないとテキストから生成します。
 
 ![元画像を読み込み水中の編集結果を表示したComfyUIワークフロー](docs/demo/edit_workflow_ja.png)
 
@@ -352,7 +353,7 @@ ComfyUIが更新されてもそのまま動きます。
 `keep original size` にすると、参照画像を縮小せずに使います。ただし軽くなるのは**参照が出力より
 大きいときだけ**で、1024x1024の参照では `match output` とほぼ同じです（実測 15.9秒 vs 16.7秒）。
 
-同梱の `workflows/qwen21_fast_edit.json` は、`install.sh` が `ComfyUI/input/qwen21_demo_source.png` に置く元画像を読み込みます。自分の画像を使うときは、LoadImageノードで選び直してください。
+同梱の2つの画像編集ワークフローは、`install.sh` が `ComfyUI/input/qwen21_demo_source.png` に置く元画像を読み込みます。自分の画像を使うときは、LoadImageノードで選び直してください。
 
 ## 5. ノードの中身
 
@@ -361,7 +362,7 @@ ComfyUIが更新されてもそのまま動きます。
 | 入力 | `prompt` | テキストから生成するときは描きたいもの、編集するときは変える部分と残す部分を書きます |
 | 入力 | `aspect_ratio` × `megapixels` | 縦横比（1:1 / 4:3 / 3:4 / 3:2 / 2:3 / 16:9 / 9:16）と大きさ（0.5 / 1 / 2 / 4 MP）。**1MP＝1024x1024、4MP＝2048x2048**。参照画像を繋いだときは `aspect_ratio` は効きません（縦横比は参照画像に従います）。このとき `megapixels` が決めるのは**面積**です（例: 16:9の参照で `megapixels=2` → 1920x1088。長辺が1440になるのではなく、1440x1440とほぼ同じ面積になります） |
 | 入力 | `steps` | 0＝自動（**長辺が1024px以下なら12ステップ**、それより大きければ20。1:1の1MPは12、4:3・16:9の1MPは長辺が1184・1376pxなので20になります） |
-| 入力 | `seed` | 乱数の種。新しく追加したノードとテキスト生成ワークフローは `randomize` で毎回違う絵を出します。編集デモのワークフローだけは水中の結果を再現しやすいよう `fixed` です。ほかの絵を試すなら `randomize` に切り替えてください |
+| 入力 | `seed` | 乱数の種。テキスト生成と `qwen21_fast_edit` は `randomize` で毎回違う絵を出します。`qwen21_fast_edit_underwater_fixed` だけは水中の例を再現しやすいよう `fixed`（`274968494187645`）です |
 | 入力 | `count` | 一度に何枚作るか（seed, seed+1, …）。結果はまとめて返ります |
 | 入力 | `reference_fit` | 参照画像の扱い（`match output`＝出力サイズに合わせる／`keep original size`＝参照の元サイズのまま。後者が軽くなるのは参照が出力より大きいときだけで、1024x1024の参照では両者ほぼ同じ〔実測15.9秒 vs 16.7秒〕） |
 | 入力 | `unet_name` / `clip_name` / `vae_name` | 重み3ファイルの指定（既定は上の3つ） |
@@ -556,7 +557,7 @@ ComfyUIは既定で **`http://127.0.0.1:8188`** で待ち受けます。**ブラ
 ```
 ComfyUI UI      http://127.0.0.1:8188     ← ブラウザで開く
                 ├── ノード一覧の「Qwen 2.1 Fast Generate」
-                ├── ワークフロー: Workflows ▸ qwen21_fast_t2i / qwen21_fast_edit
+                ├── ワークフロー: Workflows ▸ qwen21_fast_t2i / qwen21_fast_edit / qwen21_fast_edit_underwater_fixed
                 └── スクリプトが使うAPI: http://127.0.0.1:8188/prompt, /history, /object_info
 ```
 
@@ -612,7 +613,8 @@ check.sh                         構文チェック（bash / python / ワーク�
 MEASUREMENTS.md                  実測値の生ログ
 custom_nodes/qwen21_fast/        ノード本体（ComfyUI標準ノードの組み合わせ）
 workflows/qwen21_fast_t2i.json   プロンプトから生成するワークフロー
-workflows/qwen21_fast_edit.json  参照画像を繋いだ編集用ワークフロー
+workflows/qwen21_fast_edit.json  元画像から水中へ編集（seedはランダム）
+workflows/qwen21_fast_edit_underwater_fixed.json  元画像から水中へ編集（seed固定）
 make_qwen21_workflows.py         ノードの仕様からワークフローを作り直す
 test_qwen21.py                   検証（サイズ・枚数・編集）
 test_qwen21_edit.py              コマンドラインからの単発編集
@@ -635,7 +637,7 @@ docs/capture_ui.py               スクリーンショットを撮るスクリ�
 スクリーンショットは `python3 docs/capture_ui.py docs --lang ja --run` で、起動中のComfyUIにワークフローを
 読み込ませて撮ります（`ui_empty_ja.png`＝開いた直後、`ui_workflow_ja.png`＝ワークフロー読込後、`--run` を
 付けると実際に1枚生成して `ui_used_ja.png` も撮ります。`--lang en` で英語UI版）。編集デモの画面も
-`--workflow qwen21_fast_edit --run` で撮影しました。
+`--workflow qwen21_fast_edit_underwater_fixed --run` で撮影しました。
 
 ## 13. ライセンス
 

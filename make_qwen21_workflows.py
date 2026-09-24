@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the Qwen21FastGenerate demo workflows into ComfyUI's workflow list.
+"""Write the three Qwen21FastGenerate workflows into ComfyUI's workflow list.
 
 Widget order is derived from the live /object_info, and every node also gets
 widgets_values_named, so the workflow cannot drift out of sync with the node's inputs.
@@ -12,7 +12,7 @@ from pathlib import Path
 WF_DIR = Path(os.environ.get("COMFY_DIR", Path.home() / "ComfyUI")) / "user/default/workflows"
 HOST = os.environ.get("COMFY_HOST", "http://127.0.0.1:8188")
 DEMO_IMAGE = "qwen21_demo_source.png"
-DEMO_PROMPT = (Path(__file__).resolve().parent / "docs/demo/underwater.txt").read_text().strip()
+UNDERWATER_PROMPT = (Path(__file__).resolve().parent / "docs/demo/underwater.txt").read_text().strip()
 DEMO_SEED = 274968494187645
 
 def widget_values(node_id: str, overrides=None) -> tuple[list, dict]:
@@ -29,8 +29,8 @@ def widget_values(node_id: str, overrides=None) -> tuple[list, dict]:
             values.append(default)
             named[name] = default
             if name == "seed":
-                # Frontend-only widget. Text-to-image randomizes for a fresh image;
-                # the editing demo fixes its documented seed for reproducibility.
+                # Frontend-only widget. Only the underwater demo fixes its seed;
+                # text-to-image and the general editing workflow randomize.
                 control = overrides.get("control_after_generate", "randomize")
                 values.append(control)
                 named["control_after_generate"] = control   # the UI saves it under this name
@@ -39,9 +39,14 @@ def widget_values(node_id: str, overrides=None) -> tuple[list, dict]:
 
 def main() -> None:
     WF_DIR.mkdir(parents=True, exist_ok=True)
-    for edit in (False, True):
-        overrides = ({"prompt": DEMO_PROMPT, "seed": DEMO_SEED,
-                      "control_after_generate": "fixed"} if edit else {})
+    workflows = (
+        ("qwen21_fast_t2i", False, {}),
+        ("qwen21_fast_edit", True, {"prompt": UNDERWATER_PROMPT}),
+        ("qwen21_fast_edit_underwater_fixed", True,
+         {"prompt": UNDERWATER_PROMPT, "seed": DEMO_SEED,
+          "control_after_generate": "fixed"}),
+    )
+    for name, edit, overrides in workflows:
         values, named = widget_values("Qwen21FastGenerate", overrides)
         nodes = []
         links = []
@@ -70,9 +75,8 @@ def main() -> None:
             "flags": {}, "order": 2, "mode": 0,
             "inputs": [{"name": "images", "type": "IMAGE", "link": 2}], "outputs": [],
             "properties": {"Node name for S&R": "SaveImage"},
-            "widgets_values": ["qwen21_fast" + ("_edit" if edit else "")]})
+            "widgets_values": ["qwen21_fast" if not edit else name]})
         links.append([2, 2, 0, 3, 0, "IMAGE"])
-        name = "qwen21_fast_edit" if edit else "qwen21_fast_t2i"
         path = WF_DIR / f"{name}.json"
         json.dump({"last_node_id": 3, "last_link_id": 2, "nodes": nodes, "links": links,
                    "groups": [], "config": {}, "extra": {}, "version": 0.4},
