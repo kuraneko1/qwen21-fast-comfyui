@@ -234,7 +234,7 @@ LoadImage on the left supplies the source; `prompt` in the middle describes the 
 | 2 underwater | water spiraling around her like a deep-sea empress | 274968494187645 |
 | 3 rain | struck by torrential rain | 73346377262621 |
 
-**To reproduce the fire and rain scenes**: only the underwater demo ships as a fixed-seed workflow. Open `qwen21_fast_edit`, put the value above into `seed`, set **control after generate to `fixed`** and run it - with `randomize` you get a different image every time.
+**To reproduce the fire and rain scenes**: only the underwater demo ships as a fixed-seed workflow. Open `qwen21_fast_edit`, put the value above into `seed`, set **control after generate to `fixed`** and run it - with `randomize` you get a different image every time. The prompts are in the `<details>` below, and the same text is in `docs/demo/fire.txt` / `docs/demo/rain.txt`.
 
 #### Original image
 

@@ -208,7 +208,7 @@ euler/simple が公式の設定で、それ以外にすると遅くなるだけ�
 | `aimdo memory compile error` | `QwenImage21Cache`（prefix KVキャッシュ）のint8/int4がこの環境では動かない | `default` のまま使う（ノードは公開していません） |
 | 参照画像3〜4枚で失敗する／遅すぎる | 参照1枚で約4096トークン消費するため | 枚数を減らす／`megapixels` を下げる／参照を先に縮小してから入力する（大きい参照＋`keep original size` が最も重い） |
 | GGUFのローダで "unknown model architecture" | このモデルのGGUF再パックはメタデータが欠落している | ここではGGUFを使わず、int8_convrotのsafetensorsを使う |
-| ComfyUIが古いと言われる（`TextEncodeQwenImage21` が無い） | このノードが必要とする標準ノードは ComfyUI 0.37 以降にしかありません | `cd ~/ComfyUI && git pull && .venv/bin/pip install -r requirements.txt` を実行して再起動する |
+| ComfyUIが古いと言われる（`TextEncodeQwenImage21` が無い） | このノードが必要とする標準ノードは ComfyUI 0.37 以降にしかありません | `cd ~/ComfyUI && git pull` してから、**ComfyUIを動かしているPython**で `pip install -r requirements.txt`（`--with-comfyui` で入れた環境なら `.venv/bin/pip`）を実行して再起動する |
 | テストで `ConnectionRefusedError` / `URLError` が出る | ComfyUIが起動していない、またはポートが違う | ComfyUIを起動してから再実行する。ポートを変えている場合は `COMFY_HOST` で指定する（→ [10-5](#10-5-ポートと接続先)） |
 
 ## 9. 落とし穴（全部実際に踏みました）

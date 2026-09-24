@@ -221,7 +221,7 @@ A rough guide to what changes what:
 | `aimdo memory compile error` | `QwenImage21Cache` (the prefix KV cache) int8/int4 does not work in this environment | Leave it at `default` (the node does not expose it) |
 | It fails or is far too slow with 3–4 reference images | Each reference consumes about 4096 tokens | Use fewer images / lower `megapixels` / shrink the references before feeding them in (a big reference with `keep original size` is the heaviest case) |
 | "unknown model architecture" in a GGUF loader | GGUF re-packs of this model are missing metadata | Do not use GGUF here; use the int8_convrot safetensors |
-| It says ComfyUI is too old (no `TextEncodeQwenImage21`) | The stock node this one needs only exists in ComfyUI 0.37 or newer | Run `cd ~/ComfyUI && git pull && .venv/bin/pip install -r requirements.txt`, then restart |
+| It says ComfyUI is too old (no `TextEncodeQwenImage21`) | The stock node this one needs only exists in ComfyUI 0.37 or newer | Run `cd ~/ComfyUI && git pull`, then `pip install -r requirements.txt` with the Python you start ComfyUI with (`.venv/bin/pip` if you installed it with `--with-comfyui`), and restart |
 | A test fails with `ConnectionRefusedError` / `URLError` | ComfyUI is not running, or the port differs | Start ComfyUI and retry; if you changed the port, pass it with `COMFY_HOST` (see [10-5](#10-5-ports-and-connection)) |
 
 ## 9. Things that will bite you (I hit every one of these)
