@@ -16,7 +16,9 @@ Qwen-Image-2.1（7.1Bの画像生成モデル＋8Bのテキストエンコーダ
 > **この手順はLinux（Ubuntu 24.04で確認）前提です。** Windowsではそのままでは動きません（WSL2を使うか、
 > 手作業で入れる必要があります → [2-4](#2-4-linux前提ですwindowsは別のやり方が必要)）。macOSも一部のコマンドが違います。
 
-![パイプライン](docs/pipeline_ja.png)
+![1枚の参照画像から作った3つのシーン](docs/collage_ja.png)
+
+*同じ1枚の参照画像から、周囲のシーンだけを変えた3枚です（→ [2-9](#2-9-画像編集のデモ1枚の絵から3つのシーン)）。*
 
 ## 目次
 
@@ -34,6 +36,7 @@ Qwen-Image-2.1（7.1Bの画像生成モデル＋8Bのテキストエンコーダ
   - [2-6. ノードはAIに作らせることもできる](#2-6-ノードはaiに作らせることもできる)
   - [2-7. 動作確認](#2-7-動作確認)
   - [2-8. 環境変数（マシンごとに変わるのはここだけ）](#2-8-環境変数マシンごとに変わるのはここだけ)
+  - [2-9. 画像編集のデモ（1枚の絵から3つのシーン）](#2-9-画像編集のデモ1枚の絵から3つのシーン)
 - [3. ノードの中身](#3-ノードの中身)
 - [4. 実測値](#4-実測値)
 - [5. 品質を上げたいとき](#5-品質を上げたいとき)
@@ -45,6 +48,10 @@ Qwen-Image-2.1（7.1Bの画像生成モデル＋8Bのテキストエンコーダ
 
 
 ## 1. 何が動いているのか（それぞれの役割）
+
+![構成図](docs/pipeline_ja.png)
+
+*プロンプトと参照画像が、テキストエンコーダ → 画像生成器 → VAE → PNG の順に流れます。*
 
 ### 1-1. 重み（モデルファイル）の中身とダウンロード先
 
@@ -351,6 +358,65 @@ python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"
 
 パスやホスト名、デバイスIDや認証情報などは、コードに直接書いていません（ComfyUIの場所・URL、サービス名、ブラウザのパスは上の環境変数から取ります）。
 
+### 2-9. 画像編集のデモ（1枚の絵から3つのシーン）
+
+参照画像を `image_1` に繋ぐと編集モードになります。**同じ1枚から、キャラクターの同一性・服装・画風を保ったまま
+周囲のシーンだけを変える**例です（冒頭のコラージュがその4枚）。
+
+| | シーン | seed |
+|---|---|---|
+| 元画像 | 白背景のキャラクター立ち絵（1672×941） | — |
+| ① 炎 | 服と周囲が炎に包まれる | 1030019892377945 |
+| ② 水中 | 深海の女王のように水が渦を巻く | 274968494187645 |
+| ③ 雨 | 豪雨に打たれる | 73346377262621 |
+
+<details>
+<summary>3枚のプロンプト（全文）</summary>
+
+```text
+Edit the reference image: keep the character clearly recognizable while placing her in a dramatic scene where her clothing and the space around her are engulfed in intense flames. Preserve her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall anime style. Change her expression so that she looks slightly teary and on the verge of crying, with watery eyes and a distressed, trembling expression, while still remaining cute and expressive.
+
+Add vivid fire surrounding her body, sleeves, skirt, and the air around her, with bright orange flames, glowing embers, smoke, sparks, heat distortion, and strong cinematic fire lighting. The flames should look powerful and visually striking, but do not show gore, injuries, or graphic burns. Keep the character as the clear focal point. Highly detailed, dramatic, emotional, and visually impactful.
+```
+
+```text
+Edit the reference image: transform the character into a dramatic deep-sea empress scene while preserving her core identity, recognizable face, blue gradient long hair, bright blue eyes, playful smug expression, maid outfit, whale-themed details, and overall cute anime style. Surround her with a powerful vortex of ocean water, glowing bioluminescent particles, giant splashes, swirling currents, floating bubbles, and luminous deep-sea light rays. Add a majestic underwater atmosphere with translucent water ribbons spiraling around her body, as if she is commanding the sea. Enhance the whale/ocean motif with subtle spectral whale silhouettes and elegant aquatic energy. Make the scene highly dynamic, cinematic, magical, and visually striking, with strong motion, dramatic lighting, and rich blue tones. Keep the character as the clear focal point.
+```
+
+```text
+Edit the reference image: place the character in an intense torrential rainstorm while preserving her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall cute anime style. Change her expression slightly so that she looks teary and on the verge of crying, with watery eyes, a trembling mouth, and a sad, distressed but still cute expression.
+
+Add extremely heavy pouring rain throughout the scene, with dense rain streaks, splashing water, mist, droplets, wet hair, soaked clothing, puddles, and strong storm atmosphere. Make it look like she is being struck by a violent downpour. Add visible rain in the foreground and background, dramatic water splashes, wet shine on the outfit, and cinematic storm lighting. Her hair and clothes should appear drenched and slightly affected by wind and rain, while keeping her original design clearly recognizable.
+
+Make the final result highly detailed, emotional, cinematic, and visually striking. No gore, no injury, no burial, no extra characters. Keep the character as the clear focal point.
+```
+</details>
+
+**共通の設定**: 参照画像は 1672×941、出力は **1376×768**（参照の縦横比を保ち、面積が1MPになるサイズ）。
+`aspect_ratio` 1:1 / `megapixels` 1 / `steps` 0（自動＝12ステップ）/ `reference_fit` `match output` /
+cfg 1.0 / euler simple。所要は**1枚あたり約20秒**（RTX 4070 12GB・モデル常駐時。→ [4. 実測値](#4-実測値)）。
+
+**プロンプトのコツ**（この3枚で分かったこと）
+
+1. **残したいものを名指しする** — `core identity, recognizable face, long blue gradient hair, blue eyes,
+   maid outfit, whale-themed details, and overall anime style` のように列挙します。ここを書くかどうかで
+   「同じキャラに見えるか」が決まります
+2. **表情は「変えたい」と書けば変わる** — 炎と雨は `teary, on the verge of crying`、水中は
+   `playful smug expression`。同一性を保ったまま表情だけを意図的に振れます
+3. **環境はシーンの語で書く** — `intense flames` / `vortex of ocean water` / `torrential rainstorm`。
+   光（`cinematic lighting`）と動き（`swirling currents`）も一緒に書くと映えます
+4. **やってほしくないことも書く** — `no gore, no injury, no burial, no extra characters`。
+   見る人に誤解を与えないためにも入れておきます
+5. **画角を保ちたいなら保存条件を明記する** — 環境の語は構図にも効きます（実測: 保存条件を書かずに
+   「草原に炎が立ちのぼる」とだけ指定した版は、頭頂部が上端から 2% → 10% になり腰までの広角になりました）。
+   厳密に固定したいならマスク（インペイント）で背景だけ描き直します（このノードはマスク入力を持ちません）
+
+CLI から同じ編集をする場合:
+
+```bash
+python3 test_qwen21_edit.py ref.png "<プロンプト>" 1 --seed 1030019892377945
+```
+
 ## 3. ノードの中身
 
 | 入出力 | 名前 | 意味 |
@@ -462,7 +528,8 @@ workflows/qwen21_fast_edit.json  参照画像を繋いだ編集用ワークフ�
 make_qwen21_workflows.py         ノードの仕様からワークフローを作り直す
 test_qwen21.py                   検証（サイズ・枚数・編集）
 test_qwen21_edit.py              コマンドラインからの単発編集
-docs/pipeline_ja.png             冒頭の概念図（HTMLから生成したPNG）
+docs/collage_ja.png              冒頭のコラージュ（元画像＋3シーン）
+docs/pipeline_ja.png             §1の構成図（HTMLから生成したPNG）
 docs/ui_workflow_ja.png          ComfyUIを開いた直後の画面
 docs/ui_used_ja.png              実行して結果が出ている画面（ノードを実際に使っている状態）
 docs/diagram.html / .en.html     概念図の元データ（HTML。日本語版と英語版）

@@ -19,7 +19,9 @@ have to write any Python — adding **a single node** to ComfyUI is all it takes
 > (use WSL2, or install by hand → [2-4](#2-4-this-assumes-linux-windows-needs-a-different-route)). Some commands
 > differ on macOS too.
 
-![the pipeline](docs/pipeline_en.png)
+![the same reference image turned into 3 scenes](docs/collage_en.png)
+
+*The same 1 reference image with only the surroundings changed, 3 ways (→ [2-9](#2-9-an-editing-demo-1-illustration-3-scenes)).*
 
 ## Table of contents
 
@@ -37,6 +39,7 @@ have to write any Python — adding **a single node** to ComfyUI is all it takes
   - [2-6. You can also have an AI write the node](#2-6-you-can-also-have-an-ai-write-the-node)
   - [2-7. Verifying it works](#2-7-verifying-it-works)
   - [2-8. Environment variables (the only per-machine part)](#2-8-environment-variables-the-only-per-machine-part)
+  - [2-9. An editing demo (1 illustration, 3 scenes)](#2-9-an-editing-demo-1-illustration-3-scenes)
 - [3. Inside the node](#3-inside-the-node)
 - [4. Measured numbers](#4-measured-numbers)
 - [5. When you want better quality](#5-when-you-want-better-quality)
@@ -48,6 +51,10 @@ have to write any Python — adding **a single node** to ComfyUI is all it takes
 
 
 ## 1. What runs, and what each piece is for
+
+![the pipeline](docs/pipeline_en.png)
+
+*The prompt and the reference image flow left to right: text encoder -> image generator -> VAE -> PNG.*
 
 ### 1-1. What the weight files are, and where to get them
 
@@ -366,6 +373,67 @@ python3 test_qwen21_edit.py photo.png "make it snow, keep the subject unchanged"
 Paths, host names, device IDs and credentials are not written directly into the code: the ComfyUI location,
 the ComfyUI URL, the service name and the browser path all come from the environment variables above.
 
+### 2-9. An editing demo (1 illustration, 3 scenes)
+
+Connect a reference image to `image_1` and you are in edit mode. This is the same 1 illustration with the
+character's identity, outfit and art style kept while only the surroundings change (the collage at the top
+is those 4 images).
+
+| | scene | seed |
+|---|---|---|
+| original | a plain-background character illustration (1672x941) | — |
+| 1 fire | clothes and surroundings engulfed in flames | 1030019892377945 |
+| 2 underwater | water spiralling around her like a deep-sea empress | 274968494187645 |
+| 3 rain | struck by torrential rain | 73346377262621 |
+
+<details>
+<summary>the 3 prompts in full</summary>
+
+```text
+Edit the reference image: keep the character clearly recognizable while placing her in a dramatic scene where her clothing and the space around her are engulfed in intense flames. Preserve her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall anime style. Change her expression so that she looks slightly teary and on the verge of crying, with watery eyes and a distressed, trembling expression, while still remaining cute and expressive.
+
+Add vivid fire surrounding her body, sleeves, skirt, and the air around her, with bright orange flames, glowing embers, smoke, sparks, heat distortion, and strong cinematic fire lighting. The flames should look powerful and visually striking, but do not show gore, injuries, or graphic burns. Keep the character as the clear focal point. Highly detailed, dramatic, emotional, and visually impactful.
+```
+
+```text
+Edit the reference image: transform the character into a dramatic deep-sea empress scene while preserving her core identity, recognizable face, blue gradient long hair, bright blue eyes, playful smug expression, maid outfit, whale-themed details, and overall cute anime style. Surround her with a powerful vortex of ocean water, glowing bioluminescent particles, giant splashes, swirling currents, floating bubbles, and luminous deep-sea light rays. Add a majestic underwater atmosphere with translucent water ribbons spiraling around her body, as if she is commanding the sea. Enhance the whale/ocean motif with subtle spectral whale silhouettes and elegant aquatic energy. Make the scene highly dynamic, cinematic, magical, and visually striking, with strong motion, dramatic lighting, and rich blue tones. Keep the character as the clear focal point.
+```
+
+```text
+Edit the reference image: place the character in an intense torrential rainstorm while preserving her core identity, recognizable face, long blue gradient hair, blue eyes, maid outfit, whale-themed details, and overall cute anime style. Change her expression slightly so that she looks teary and on the verge of crying, with watery eyes, a trembling mouth, and a sad, distressed but still cute expression.
+
+Add extremely heavy pouring rain throughout the scene, with dense rain streaks, splashing water, mist, droplets, wet hair, soaked clothing, puddles, and strong storm atmosphere. Make it look like she is being struck by a violent downpour. Add visible rain in the foreground and background, dramatic water splashes, wet shine on the outfit, and cinematic storm lighting. Her hair and clothes should appear drenched and slightly affected by wind and rain, while keeping her original design clearly recognizable.
+
+Make the final result highly detailed, emotional, cinematic, and visually striking. No gore, no injury, no burial, no extra characters. Keep the character as the clear focal point.
+```
+</details>
+
+**Settings**: the reference is 1672x941 and the output is **1376x768** (same aspect ratio, 1 MP of area).
+`aspect_ratio` 1:1 / `megapixels` 1 / `steps` 0 (auto = 12 steps) / `reference_fit` `match output` /
+cfg 1.0 / euler simple. About **20 s per image** (RTX 4070 12GB, model resident; → [4. Measured numbers](#4-measured-numbers)).
+
+**Prompt tips** (what these 3 images taught me)
+
+1. **Name what must stay** - list `core identity, recognizable face, long blue gradient hair, blue eyes,
+   maid outfit, whale-themed details, and overall anime style`. This is what decides whether it still looks
+   like the same character
+2. **An expression change is something you ask for** - fire and rain say `teary, on the verge of crying`,
+   underwater says `playful smug expression`. You can steer the face deliberately while keeping the identity
+3. **Write the environment in scene words** - `intense flames` / `vortex of ocean water` / `torrential
+   rainstorm`, plus light (`cinematic lighting`) and motion (`swirling currents`)
+4. **Say what must not happen** - `no gore, no injury, no burial, no extra characters`. Worth including so a
+   viewer cannot misread the image
+5. **To hold the framing, state the preservation explicitly** - environment words also move the composition
+   (measured: a version that only said "a field of flames around him" pushed the top of the head from 2% to
+   10% down the frame and widened the crop to the waist). For an exactly fixed frame, mask (inpaint) the
+   background instead; this node has no mask input
+
+The CLI equivalent:
+
+```bash
+python3 test_qwen21_edit.py ref.png "<prompt>" 1 --seed 1030019892377945
+```
+
 ## 3. Inside the node
 
 | in / out | name | meaning |
@@ -488,7 +556,8 @@ workflows/qwen21_fast_edit.json  the edit workflow with a reference image connec
 make_qwen21_workflows.py         rebuild the workflows from the node's specification
 test_qwen21.py                   verification (sizes, count, edit)
 test_qwen21_edit.py              a one-off edit from the command line
-docs/pipeline_en.png             the diagram at the top (an HTML render)
+docs/collage_en.png              the collage at the top (the original + 3 scenes)
+docs/pipeline_en.png             the diagram in section 1 (an HTML render)
 docs/ui_workflow_en.png          the ComfyUI screen as it opens
 docs/ui_used_en.png              the same screen after a run (the node actually in use)
 docs/diagram.html / .en.html     the diagram source (HTML, Japanese and English)
