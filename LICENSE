@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-NOTE: this licence covers the node and scripts in this repository only. The
-Qwen-Image-2.1 model weights are NOT distributed here; install.sh downloads
-them from the official repositories, and they are released under the Qwen
-Research License (non-commercial).
