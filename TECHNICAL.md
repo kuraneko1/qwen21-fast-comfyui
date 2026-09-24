@@ -1,4 +1,5 @@
-**English → [TECHNICAL.en.md](TECHNICAL.en.md)**  
+**English → [TECHNICAL.en.md](TECHNICAL.en.md)**
+
 **通常の導入・使い方 → [README.md](README.md)**
 
 # 技術リファレンス — Qwen-Image-2.1 / ComfyUI

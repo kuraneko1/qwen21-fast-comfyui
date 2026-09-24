@@ -1,4 +1,5 @@
-**Japanese → [TECHNICAL.md](TECHNICAL.md)**  
+**Japanese → [TECHNICAL.md](TECHNICAL.md)**
+
 **Normal setup and usage → [README.en.md](README.en.md)**
 
 # Technical Reference — Qwen-Image-2.1 / ComfyUI
